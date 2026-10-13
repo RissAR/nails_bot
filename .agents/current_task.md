@@ -1,25 +1,60 @@
-# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 1 — Базова архітектура Telegram-бота (aiogram 3.x), База даних та Рольова модель (RBAC)
+# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 1 — Архітектура Telegram-бота «Sense Nail Studio» (aiogram 3.x), База Даних, Сідінг Концепції та RBAC
 
 ## 1. Загальна інформація та конфігурація
-- **Призначення:** Telegram-бот для манікюрного салону з чітким розподілом ролей (Адміністратор / Клієнт) та підготовкою структури під майбутній Telegram Mini App.
+- **Проект:** Telegram-бот для студії естетичного манікюру **«Sense Nail Studio»** (м. Івано-Франківськ / Хмельницький, середній ціновий сегмент).
 - **Bot Token:** `YOUR_BOT_TOKEN_HERE`
 - **Admin TG ID:** `8607080614`
 - **Admin Username:** `@andriy_bot_dev`
 - **GitHub Repository:** `https://github.com/RissAR/nails_bot.git` (гілка `main`)
-- **Стек:** Python 3.11+, aiogram 3.x, SQLAlchemy 2.0 (Async), aiosqlite (SQLite для локального старту з підтримкою зміни на PostgreSQL через DATABASE_URL), Pydantic Settings.
+- **Стек:** Python 3.11+, aiogram 3.x, SQLAlchemy 2.0 (Async), aiosqlite (SQLite для локального старту з готовністю перемикання на PostgreSQL через DATABASE_URL), Pydantic Settings.
 
 ---
 
-## 2. Обмеження та правила (Strict Scope Discipline)
-1. **Zero Scope Creep:** Реалізувати **виключно** бекенд/бота, базу даних, конфігурацію та обробники ролей.
-2. **Фронтенд Mini App поки НЕ створювати:** лише підготувати архітектуру під його інтеграцію.
-3. **Безпека секретів:** Токен та ID адміністратора мають зчитуватися з `.env`. Створити `.env` з наданими даними та безпечний `.env.example`. Переконатися, що `.env` знаходиться в `.gitignore`.
-4. **Git Автоматизація:** Після завершення розробки та перевірки обов'язково виконати `git add . && git commit -m "..." && git push -u origin main`.
+## 2. Суворі правила виконання (Strict Scope Discipline)
+1. **Zero Scope Creep:** Реалізувати **виключно** бекенд/бота, базу даних, наповнення даними концепції (seed data), авторизацію RBAC та навігаційні хендлери для ролей.
+2. **Фронтенд Mini App поки НЕ створювати:** лише підготувати базу даних та структуру під майбутній API/TMA.
+3. **Безпека секретів:** Токен та ID адміністратора зчитувати з `.env`. Створити `.env` з наданими реальними даними та `.env.example` з плейсхолдерами. Переконатися, що `.env` та `*.db` у `.gitignore`.
+4. **Git Автоматизація:** Після завершення розробки та перевірки обов'язково виконати:
+   `git add . && git commit -m "feat: bot architecture with Sense Studio concept, DB seed and RBAC" && git push origin main`.
 
 ---
 
-## 3. Необхідна структура проекту
-Рекомендується чиста модульна структура:
+## 3. Затверджена концепція та дані для наповнення (Seed Data)
+
+### 3.1. Бренд
+- **Назва:** Sense Nail Studio
+- **Вайб / Опис:** Затишна міська студія естетичного манікюру. Стерильність за медичними стандартами (сухожар, крафт-пакети), якісні матеріали, турбота про клієнта.
+- **Графік роботи:** Щодня з 09:00 до 20:00.
+- **Локація:** Центр міста, вул. Січових Стрільців.
+
+### 3.2. Команда майстрів (Таблиця `masters`):
+1. **Олена** (`Top Master`):
+   - Досвід: 4 роки.
+   - Спеціалізація: Складні техніки, моделювання нігтів, френч, ремонт та відновлення архітектури.
+   - Графік: Пн, Ср, Пт, Нд (09:00 – 19:00).
+2. **Вікторія** (`Master`):
+   - Досвід: 2 роки.
+   - Спеціалізація: Апаратний та комбі-манікюр, нюдові покриття, японський еко-манікюр, SPA-догляд.
+   - Графік: Вт, Чт, Сб (10:00 – 20:00).
+
+### 3.3. Каталог послуг (Категорії та таблиця `services`):
+- **Категорія 1: Комплекси манікюру**
+  - `Комплекс «Базовий Однотон»`: 90 хв (1.5 год), 550 грн. Виконують: Олена, Вікторія.
+  - `Комплекс «Френч / Градієнт»`: 105 хв (1 год 45 хв), 650 грн. Виконують: Олена, Вікторія.
+  - `Гігієнічний манікюр`: 45 хв, 350 грн. Виконують: Олена, Вікторія.
+  - `Японський Еко-манікюр`: 60 хв, 450 грн. Виконує: лише Вікторія.
+- **Категорія 2: Моделювання та нарощування**
+  - `Нарощування нігтів (з нуля)`: 150 хв (2.5 год), 900 грн. Виконує: лише Олена.
+  - `Корекція нарощених нігтів`: 120 хв (2 год), 750 грн. Виконує: лише Олена.
+- **Категорія 3: Доглядові послуги та Add-ons**
+  - `Ремонт / Донарощування 1 нігтя`: 15 хв, 70 грн. Виконують: Олена, Вікторія.
+  - `Укріплення гелем / акрилом`: 20 хв, 150 грн. Виконують: Олена, Вікторія.
+  - `SPA-догляд (Парафінотерапія)`: 30 хв, 200 грн. Виконують: Олена, Вікторія.
+
+---
+
+## 4. Необхідна модульна структура проекту
+
 ```text
 LeadBot/
 ├── .agents/
@@ -29,33 +64,36 @@ LeadBot/
 │           └── SKILL.md
 ├── src/
 │   ├── __init__.py
-│   ├── config.py             # Pydantic Settings (BOT_TOKEN, ADMIN_IDS, DB_URL)
+│   ├── config.py              # Pydantic Settings (BOT_TOKEN, ADMIN_IDS, DB_URL, SALON_NAME)
 │   ├── database/
 │   │   ├── __init__.py
-│   │   ├── session.py        # Async engine, sessionmaker, init_db()
+│   │   ├── session.py         # Async engine, sessionmaker, get_db()
+│   │   ├── init_db.py         # Створення таблиць + функція seed_initial_data()
 │   │   └── models/
 │   │       ├── __init__.py
-│   │       ├── base.py       # DeclarativeBase, timestamps
-│   │       ├── user.py       # Модель User (ролі: CLIENT, ADMIN)
-│   │       ├── service.py    # Модель Service (послуги манікюру)
-│   │       ├── master.py     # Модель Master та зв'язок з послугами
-│   │       └── appointment.py# Модель Appointment (записи)
+│   │       ├── base.py        # DeclarativeBase, BaseDBModel
+│   │       ├── user.py        # User (telegram_id, username, full_name, role)
+│   │       ├── category.py    # Category (id, name, slug)
+│   │       ├── service.py     # Service (category_id, name, description, duration_minutes, price, is_active)
+│   │       ├── master.py      # Master (name, title, bio, is_active) та MasterService
+│   │       ├── schedule.py    # Schedule (master_id, day_of_week, start_time, end_time, is_day_off)
+│   │       └── appointment.py # Appointment (client_id, master_id, service_id, date, start_time, end_time, status)
 │   ├── filters/
 │   │   ├── __init__.py
-│   │   └── admin.py          # IsAdminFilter
+│   │   └── admin.py           # IsAdminFilter
 │   ├── middlewares/
 │   │   ├── __init__.py
-│   │   └── auth.py           # Auto-registration користувачів у БД при взаємодії
-│   ├── handlers/
-│   │   ├── __init__.py
-│   │   ├── client.py         # /start для клієнта, інфо, контакти салону
-│   │   ├── admin.py          # /start для адміна, /admin, меню керування
-│   │   └── common.py         # Загальні команди /help, обробка помилок
+│   │   └── auth.py            # AuthMiddleware: реєстрація у БД, присвоєння ролі admin для 8607080614
 │   ├── keyboards/
 │   │   ├── __init__.py
-│   │   ├── client_kb.py      # Клавіатури клієнта
-│   │   └── admin_kb.py       # Клавіатури адміна
-│   └── main.py               # Точка входу: запуск бота, диспетчера, ініціалізація БД
+│   │   ├── client_kb.py       # Inline-клавіатури клієнта (Каталог, Майстри, Контакти, Запис)
+│   │   └── admin_kb.py        # Панель керування адміна (Послуги, Майстри, Заявки, Статистика)
+│   ├── handlers/
+│   │   ├── __init__.py
+│   │   ├── client.py          # /start (для клієнта), перегляд каталогу з БД, майстрів, контактів
+│   │   ├── admin.py           # /start (для адміна), /admin, навігація по адмін-панелі
+│   │   └── common.py          # /help, обробка невідомих команд
+│   └── main.py                # Запуск бота (aiogram 3.x polling), підключення мідлварей та роутерів
 ├── .env
 ├── .env.example
 ├── .gitignore
@@ -65,80 +103,59 @@ LeadBot/
 
 ---
 
-## 4. Конкретні вимоги до компонентів
+## 5. Деталі технічної реалізації
 
-### 4.1. Конфігурація (`src/config.py`)
-- Завантаження з `.env`:
-  - `BOT_TOKEN: str` (дефолт/змінна: `YOUR_BOT_TOKEN_HERE`)
-  - `ADMIN_IDS: list[int]` (включає `8607080614`)
-  - `DATABASE_URL: str` (за замовчуванням `sqlite+aiosqlite:///./nails_salon.db`)
+### 5.1. Конфігурація (`src/config.py`)
+- Використовувати `pydantic-settings`:
+  ```python
+  class Settings(BaseSettings):
+      BOT_TOKEN: str = "YOUR_BOT_TOKEN_HERE"
+      ADMIN_IDS: list[int] = [8607080614]
+      ADMIN_USERNAME: str = "@andriy_bot_dev"
+      DATABASE_URL: str = "sqlite+aiosqlite:///./nails_salon.db"
+      SALON_NAME: str = "Sense Nail Studio"
+      model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+  ```
 
-### 4.2. База даних та Моделі (`src/database/`)
-- Використовувати `SQLAlchemy 2.0` асинхронний синтаксис (`Mapped`, `mapped_column`).
-- **User:**
-  - `id: int` (PK)
-  - `telegram_id: int` (BigInteger, unique, index=True)
-  - `username: str | None`
-  - `full_name: str`
-  - `role: str` (`"client"` або `"admin"`, за замовчуванням `"client"`)
-  - `phone: str | None`
-  - `created_at: datetime`
-- **Service:**
-  - `id: int` (PK)
-  - `name: str`
-  - `description: str | None`
-  - `duration_minutes: int` (тривалість процедури)
-  - `price: float`
-  - `is_active: bool` (default=True)
-- **Master:**
-  - `id: int` (PK)
-  - `name: str`
-  - `is_active: bool` (default=True)
-- **Appointment:**
-  - `id: int` (PK)
-  - `client_id: int` (FK -> users.id)
-  - `master_id: int` (FK -> masters.id)
-  - `service_id: int` (FK -> services.id)
-  - `booking_date: date`
-  - `start_time: time`
-  - `end_time: time`
-  - `status: str` (`"pending"`, `"confirmed"`, `"rejected"`, `"cancelled"`)
-  - `cancellation_reason: str | None`
-  - `created_at: datetime`
-- Функція `init_db()` для автоматичного створення таблиць при старті бота (без необхідності зовнішніх міграцій на першому етапі).
+### 5.2. База даних та авто-сідінг (`src/database/init_db.py`)
+- Під час старту бота викликається `init_db()`.
+- Якщо таблиці порожні — автоматично створюються категорії, майстри, послуги, зв'язки `MasterService` та графіки роботи зі списку Розділу 3.
+- Повторний запуск бота не повинен дублювати дані.
 
-### 4.3. Авторизація та Мідлварі (`src/middlewares/auth.py`, `src/filters/admin.py`)
+### 5.3. Авторизація (RBAC Middleware & Filter)
 - **`AuthMiddleware`**:
-  - При будь-якому повідомленні або callback від користувача перевіряє його наявність у БД.
-  - Якщо користувача немає — автоматично створює запис.
-  - Якщо `event.from_user.id in settings.ADMIN_IDS` — автоматично встановлює/підтверджує роль `"admin"`.
-  - Передає об'єкт `db_user` у дані хендлера (`data["db_user"]`).
+  - На кожен апдейт (`Message`, `CallbackQuery`) перевіряє наявність користувача в БД.
+  - Якщо користувача немає — створює його (`role="admin"` якщо `telegram_id in ADMIN_IDS`, інакше `role="client"`).
+  - Якщо користувач вже є, але його ID в `ADMIN_IDS` — гарантує, що його роль оновлена до `"admin"`.
+  - Інжектує `db_user` та `session` у `data` хендлера.
 - **`IsAdminFilter`**:
-  - Перевіряє, чи є користувач адміністратором (за `event.from_user.id in settings.ADMIN_IDS` або `db_user.role == 'admin'`).
+  - Перевіряє права адміністратора для адмінських роутерів.
 
-### 4.4. Хендлери та Інтерфейс
-- **Клієнтський режим (`src/handlers/client.py`):**
-  - `/start`: Тепле привітання в манікюрному салоні, опис послуг, інлайн-кнопки (наприклад, "💅 Онлайн-запис (Скоро)", "ℹ️ Про салон", "📞 Контакти").
-- **Адміністраторський режим (`src/handlers/admin.py`):**
-  - Спрацьовує при `/start` від адміна або при команді `/admin`.
-  - Вітальне повідомлення адміна: *"Вітаємо в панелі керування салоном!"*.
-  - Інлайн-меню адміна:
-    - 📋 Список послуг (перегляд існуючих послуг з БД або повідомлення про відсутність).
-    - 📅 Графік майстрів (заглушка/попередній перегляд).
-    - 🔔 Активні заявки (перегляд заявок зі статусом pending).
+### 5.4. Інтерфейс бота
+- **Клієнтський режим (`handlers/client.py`):**
+  - Привітання: опис студії *Sense Nail Studio*, години роботи, адреса.
+  - Кнопки:
+    - 💅 **Послуги та ціни:** інтерактивний перегляд категорій та послуг, отриманих динамічно з бази даних (із зазначенням вартості та тривалості).
+    - 👩‍🎨 **Наші майстри:** картки Олени та Вікторії з їхньою спеціалізацією.
+    - 📅 **Записатися онлайн:** інлайн-кнопка, яка інформує про запуск онлайн-запису через Mini App у наступному релізі.
+    - 📍 **Контакти:** адреса, години роботи, посилання на зв'язок з адміністратором `@andriy_bot_dev`.
+- **Адміністраторський режим (`handlers/admin.py`):**
+  - При запуску адміном показує спеціальне меню керування:
+    - 📋 **Список послуг:** швидкий перегляд активних послуг з БД.
+    - 👩‍🎨 **Майстри та розклад:** статус майстрів та робочі дні.
+    - 🔔 **Активні заявки:** перегляд заявок (повідомлення про відсутність нових заявок, оскільки система тільки розгортається).
+    - 📊 **Клієнти студії:** кількість зареєстрованих клієнтів у базі даних.
 
 ---
 
-## 5. Валідація та Критерії готовності (Acceptance Criteria)
-1. Створено віртуальне середовище / `requirements.txt` із зафіксованими версіями (`aiogram>=3.4.0`, `sqlalchemy>=2.0.0`, `aiosqlite`, `pydantic-settings`).
-2. Код не містить синтаксичних помилок (перевірка через `python -m py_compile`).
-3. Бот успішно запускається в режимі лонґ-полінгу (`polling`) і реагує на команди:
-   - Від користувача 8607080614 відкривається адмінське меню.
-   - Від стороннього користувача відкривається клієнтське меню.
-4. База даних ініціалізується, користувач записується в таблицю `users`.
-5. Зміни зафіксовані в git та відправлені на GitHub:
+## 6. Критерії приймання та валідація (Acceptance Criteria)
+1. Усі залежності зафіксовані в `requirements.txt` (`aiogram>=3.4.0`, `sqlalchemy>=2.0.0`, `aiosqlite`, `pydantic-settings`).
+2. Код проходить перевірку компіляції (`python -m py_compile src/**/*.py`).
+3. При запуску бота база даних успішно створюється і наповнюється сід-даними (2 майстри, 3 категорії, 9 послуг з графіками).
+4. Авторизація працює: для `8607080614` відкривається панель адміністратора, для звичайного користувача — клієнтське меню.
+5. Зміни закомічені та відправлені на GitHub:
    ```bash
    git add .
-   git commit -m "feat: initial bot structure with RBAC and database"
-   git push -u origin main
+   git commit -m "feat: bot architecture with Sense Studio concept, DB seed and RBAC"
+   git push origin main
    ```
