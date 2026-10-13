@@ -5,11 +5,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    BOT_TOKEN: str = "YOUR_BOT_TOKEN_HERE"
-    ADMIN_IDS: list[int] = [8607080614]
-    ADMIN_USERNAME: str = "@andriy_bot_dev"
+    BOT_TOKEN: str = ""
+    ADMIN_IDS: list[int] = []
+    ADMIN_USERNAME: str = ""
     DATABASE_URL: str = "sqlite+aiosqlite:///./nails_salon.db"
     SALON_NAME: str = "Sense Nail Studio"
+    WEBAPP_URL: str = "http://localhost:8000/app"
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8000
 
     model_config = SettingsConfigDict(
         env_file=".env",

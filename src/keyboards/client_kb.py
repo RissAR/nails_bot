@@ -1,11 +1,18 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from src.config import settings
 from src.database.models.category import Category
 
 
 def get_client_main_kb() -> InlineKeyboardMarkup:
-    """Return main client interactive inline keyboard."""
+    """Return main client interactive inline keyboard with WebApp button."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="💅 Онлайн-запис (Mini App)",
+                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                ),
+            ],
             [
                 InlineKeyboardButton(
                     text="💅 Послуги та ціни",
@@ -17,10 +24,6 @@ def get_client_main_kb() -> InlineKeyboardMarkup:
                 ),
             ],
             [
-                InlineKeyboardButton(
-                    text="📅 Записатися онлайн",
-                    callback_data="client_booking_soon",
-                ),
                 InlineKeyboardButton(
                     text="📍 Контакти",
                     callback_data="client_contacts",
@@ -44,6 +47,14 @@ def get_categories_kb(categories: list[Category]) -> InlineKeyboardMarkup:
     buttons.append(
         [
             InlineKeyboardButton(
+                text="💅 Записатися в Mini App",
+                web_app=WebAppInfo(url=settings.WEBAPP_URL),
+            )
+        ]
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
                 text="◀️ Назад до меню",
                 callback_data="client_main_menu",
             )
@@ -58,6 +69,12 @@ def get_category_services_kb() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
+                    text="💅 Записатися в Mini App",
+                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text="◀️ До категорій",
                     callback_data="client_services",
                 ),
@@ -65,7 +82,7 @@ def get_category_services_kb() -> InlineKeyboardMarkup:
                     text="🏠 Головне меню",
                     callback_data="client_main_menu",
                 ),
-            ]
+            ],
         ]
     )
 
@@ -76,9 +93,15 @@ def get_client_back_kb() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
+                    text="💅 Записатися в Mini App",
+                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text="◀️ Назад до меню",
                     callback_data="client_main_menu",
-                )
-            ]
+                ),
+            ],
         ]
     )

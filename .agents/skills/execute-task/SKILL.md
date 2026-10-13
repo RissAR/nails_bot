@@ -21,9 +21,15 @@ Use this skill to execute technical tasks formulated in `.agents/current_task.md
    - Do NOT add unrequested third-party integrations or features.
    - Preserve existing code and adhere strictly to framework best practices (e.g., aiogram 3.x routers/middlewares/filters, async SQLAlchemy 2.0).
 
-3. **Verification:**
+3. **Strict Security Directive (Zero Hardcoded Secrets):**
+   - **NEVER** write real bot tokens, API keys, credentials, or sensitive data into Python source code, Settings default values, or tracked files.
+   - All secrets MUST be loaded exclusively from the local `.env` file via `pydantic-settings` or `os.getenv`.
+   - In `Settings` classes, declare `BOT_TOKEN: str = ""` (or without default). Never put real tokens as fallback values.
+   - Ensure `.env` and `*.db` are strictly ignored by `.gitignore` and NEVER staged or committed.
+
+4. **Verification:**
    - Verify all imports, syntax, and run linting/testing where applicable (e.g. `python -m py_compile ...`).
-   - Ensure no hardcoded secrets exist in tracked files (use `.env` and `pydantic-settings`).
+   - Check with `git diff` or `grep` that no secret or token has been accidentally introduced into tracked files.
 
 4. **Git Finalization (Mandatory):**
    - Stage all relevant changes: `git add .`

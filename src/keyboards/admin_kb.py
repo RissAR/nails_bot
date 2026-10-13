@@ -1,10 +1,17 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from src.config import settings
 
 
 def get_admin_main_kb() -> InlineKeyboardMarkup:
-    """Return main admin control panel inline keyboard."""
+    """Return main admin control panel inline keyboard with WebApp."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📱 Відкрити адмін-панель TMA",
+                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                ),
+            ],
             [
                 InlineKeyboardButton(
                     text="📋 Список послуг",
@@ -35,9 +42,15 @@ def get_admin_back_kb() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
+                    text="📱 Відкрити адмін-панель TMA",
+                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text="◀️ Назад в адмін-панель",
                     callback_data="admin_main_menu",
-                )
-            ]
+                ),
+            ],
         ]
     )

@@ -1,91 +1,76 @@
-# Sense Nail Studio — Telegram Bot 💅
+# Sense Nail Studio — Telegram Bot & Mini App 💅
 
-Telegram-бот для студії естетичного манікюру **«Sense Nail Studio»** (м. Івано-Франківськ) з повною рольовою моделлю доступу (RBAC: Клієнт / Адміністратор), модульною архітектурою на базі `aiogram 3.x`, базою даних SQLAlchemy 2.0 (Async) та сідінгом бізнес-концепції студії.
+Повнофункціональний Telegram-бот та Telegram Mini App (TMA) для студії естетичного манікюру **«Sense Nail Studio»** (м. Івано-Франківськ).
+
+Проект поєднує:
+- 🤖 **Telegram-бот** на `aiogram 3.x` з рольовою моделлю доступу (RBAC) та кнопками WebApp.
+- ⚡ **REST API** на `FastAPI`, що працює асинхронно з базою даних SQLAlchemy 2.0.
+- 📱 **Telegram Mini App** на `React 18`, `TypeScript`, `Vite` та `Tailwind CSS` в естетичному дизайні **«Warm Nude & Cashmere»**.
 
 ---
 
 ## 💎 Концепція студії Sense Nail Studio
-- **Вайб бренду:** Затишна міська студія естетичного манікюру, де турбота про здоров'я нігтів поєднується зі 100% стерильністю медичного рівня (сухожар, одноразові крафт-пакети) та сучасним сервісом.
+- **Вайб бренду:** Затишна міська студія естетичного манікюру зі 100% стерильністю медичного рівня (сухожар, одноразові крафт-пакети).
 - **Локація:** м. Івано-Франківськ, центр, вул. Січових Стрільців.
 - **Графік роботи:** Щодня з 09:00 до 20:00.
 
 ### Команда майстрів:
 1. **Олена** (`Top Master`):
-   - Досвід: 4 роки.
-   - Спеціалізація: Складні техніки, моделювання нігтів, френч, ремонт та відновлення архітектури.
+   - Досвід: 4 роки. Складні техніки, моделювання, френч, архітектура.
    - Графік: Пн, Ср, Пт, Нд (09:00 – 19:00).
 2. **Вікторія** (`Master`):
-   - Досвід: 2 роки.
-   - Спеціалізація: Апаратний та комбі-манікюр, нюдові покриття, японський еко-манікюр, SPA-догляд.
+   - Досвід: 2 роки. Апаратний/комбі-манікюр, нюд, японський еко-манікюр, SPA.
    - Графік: Вт, Чт, Сб (10:00 – 20:00).
-
-### Каталог послуг:
-- **Комплекси манікюру:**
-  - `Комплекс «Базовий Однотон»`: 90 хв (1.5 год), 550 грн (Олена, Вікторія)
-  - `Комплекс «Френч / Градієнт»`: 105 хв (1 год 45 хв), 650 грн (Олена, Вікторія)
-  - `Гігієнічний манікюр`: 45 хв, 350 грн (Олена, Вікторія)
-  - `Японський Еко-манікюр`: 60 хв, 450 грн (лише Вікторія)
-- **Моделювання та нарощування:**
-  - `Нарощування нігтів (з нуля)`: 150 хв (2.5 год), 900 грн (лише Олена)
-  - `Корекція нарощених нігтів`: 120 хв (2 год), 750 грн (лише Олена)
-- **Доглядові послуги та Add-ons:**
-  - `Ремонт / Донарощування 1 нігтя`: 15 хв, 70 грн (Олена, Вікторія)
-  - `Укріплення гелем / акрилом`: 20 хв, 150 грн (Олена, Вікторія)
-  - `SPA-догляд (Парафінотерапія)`: 30 хв, 200 грн (Олена, Вікторія)
 
 ---
 
 ## 🛠 Технологічний стек
-- **Python:** 3.11+
-- **Telegram Bot Framework:** [aiogram 3.x](https://docs.aiogram.dev/)
-- **ORM / База даних:** [SQLAlchemy 2.0 (Async)](https://docs.sqlalchemy.org/) + `aiosqlite` (SQLite локально з можливістю підключення PostgreSQL через `DATABASE_URL`)
-- **Конфігурація:** [pydantic-settings](https://docs.pydantic.dev/)
+- **Backend & Bot:** Python 3.11+, `aiogram 3.x`, `FastAPI`, `Uvicorn`, `SQLAlchemy 2.0 (Async)`, `aiosqlite`, `pydantic-settings`.
+- **Frontend Mini App:** `React 18`, `TypeScript`, `Vite`, `Tailwind CSS`, `Lucide React`, Telegram WebApp API.
+- **Палітра дизайну:** Warm Nude & Cashmere (Фон `#FDFBF7`, акцент `#D4A373`, поверхня `#FFFFFF`, текст `#2B2623`).
 
 ---
 
 ## 📁 Структура проекту
 ```text
 LeadBot/
-├── .agents/
-│   ├── current_task.md
-│   └── skills/
-│       └── execute-task/
-│           └── SKILL.md
+├── frontend/                     # React + Vite Telegram Mini App
+│   ├── src/
+│   │   ├── api/
+│   │   │   └── client.ts         # Запити до REST API
+│   │   ├── components/
+│   │   │   ├── Header.tsx        # Шапка студії та перемикач ролей адміна
+│   │   │   ├── ServiceList.tsx   # Каталог послуг з фільтрацією за табами
+│   │   │   ├── MasterList.tsx    # Вибір майстра та перевірка сумісності
+│   │   │   ├── SlotPicker.tsx    # 14-денний календар та динамічні таймслоти
+│   │   │   ├── BookingModal.tsx  # Модальне вікно запису та підтвердження
+│   │   │   └── AdminDashboard.tsx# Панель адміна (метрики, черга заявок)
+│   │   ├── types/
+│   │   │   └── index.ts          # Інтерфейси Service, Master, Booking тощо
+│   │   ├── App.tsx               # Головний компонент Mini App
+│   │   ├── index.css             # Tailwind директиви
+│   │   └── main.tsx
+│   ├── dist/                     # Зібраний production-бандл (роздається FastAPI)
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── vite.config.ts
 ├── src/
-│   ├── __init__.py
-│   ├── config.py              # Pydantic Settings (BOT_TOKEN, ADMIN_IDS, DB_URL, SALON_NAME)
-│   ├── database/
-│   │   ├── __init__.py
-│   │   ├── session.py         # Async engine, sessionmaker, get_session()
-│   │   ├── init_db.py         # Створення таблиць + функція seed_initial_data()
-│   │   └── models/
-│   │       ├── __init__.py
-│   │       ├── base.py        # DeclarativeBase, TimestampMixin
-│   │       ├── user.py        # User (telegram_id, username, full_name, role)
-│   │       ├── category.py    # Category (id, name, slug)
-│   │       ├── service.py     # Service (category_id, name, description, duration_minutes, price, is_active)
-│   │       ├── master.py      # Master (name, title, bio, is_active) та MasterService
-│   │       ├── schedule.py    # Schedule (master_id, day_of_week, start_time, end_time, is_day_off)
-│   │       └── appointment.py # Appointment (client_id, master_id, service_id, date, start_time, end_time, status)
-│   ├── filters/
-│   │   ├── __init__.py
-│   │   └── admin.py           # IsAdminFilter
-│   ├── middlewares/
-│   │   ├── __init__.py
-│   │   └── auth.py            # AuthMiddleware: реєстрація у БД, присвоєння ролі admin для 8607080614
-│   ├── keyboards/
-│   │   ├── __init__.py
-│   │   ├── client_kb.py       # Inline-клавіатури клієнта (Каталог, Майстри, Контакти, Запис)
-│   │   └── admin_kb.py        # Панель керування адміна (Послуги, Майстри, Заявки, Статистика)
-│   ├── handlers/
-│   │   ├── __init__.py
-│   │   ├── client.py          # /start (для клієнта), перегляд каталогу з БД, майстрів, контактів
-│   │   ├── admin.py           # /start (для адміна), /admin, навігація по адмін-панелі
-│   │   └── common.py          # /help, обробка невідомих команд
-│   └── main.py                # Запуск бота (aiogram 3.x polling), підключення мідлварей та роутерів
-├── .env                       # Змінні оточення (ігнорується git)
-├── .env.example               # Приклад налаштувань
-├── .gitignore
+│   ├── api/                      # Модуль FastAPI REST API
+│   │   ├── app.py                # Створення додатку, CORS, роздача static /app
+│   │   └── routes/
+│   │       ├── services.py       # GET /api/services
+│   │       ├── masters.py        # GET /api/masters
+│   │       ├── slots.py          # GET /api/slots
+│   │       ├── bookings.py       # POST /api/bookings, GET /api/admin/bookings, stats
+│   │       └── auth.py           # GET /api/auth/me
+│   ├── config.py                 # Pydantic Settings
+│   ├── database/                 # База даних, моделі та сідінг
+│   ├── handlers/                 # aiogram хендлери
+│   ├── keyboards/                # Клавіатури з WebAppInfo
+│   ├── middlewares/              # AuthMiddleware (RBAC)
+│   └── main.py                   # Одночасний запуск FastAPI та aiogram через asyncio.gather()
+├── .env                          # Локальні змінні оточення
+├── .env.example
 ├── requirements.txt
 └── README.md
 ```
@@ -94,30 +79,42 @@ LeadBot/
 
 ## 🚀 Встановлення та запуск
 
-1. **Клонування та перехід у директорію:**
-   ```bash
-   git clone https://github.com/RissAR/nails_bot.git
-   cd nails_bot
-   ```
+### 1. Клонування репозиторію
+```bash
+git clone https://github.com/RissAR/nails_bot.git
+cd nails_bot
+```
 
-2. **Створення віртуального середовища:**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
+### 2. Налаштування віртуального середовища Python
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-3. **Встановлення залежностей:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 3. Збірка фронтенду Mini App
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
 
-4. **Налаштування `.env`:**
-   ```bash
-   cp .env.example .env
-   ```
+### 4. Змінні оточення
+```bash
+cp .env.example .env
+```
+Параметри в `.env`:
+- `BOT_TOKEN`: токен бота від BotFather
+- `ADMIN_IDS`: `[8607080614]`
+- `WEBAPP_URL`: URL до Mini App (за замовчуванням `http://localhost:8000/app` або ngrok URL для мобільного тестування в Telegram)
+- `API_PORT`: `8000`
 
-5. **Запуск бота:**
-   ```bash
-   python -m src.main
-   ```
-   При першому запуску база даних створюється автоматично та наповнюється сід-даними (3 категорії, 9 послуг, 2 майстри з розкладом). Повторні запуски не дублюють дані.
+### 5. Запуск системи (Бот + FastAPI)
+```bash
+python -m src.main
+```
+Сервер підніметься на `http://0.0.0.0:8000`:
+- **Mini App:** `http://localhost:8000/app/`
+- **Swagger Docs:** `http://localhost:8000/docs`
+- **Telegram Bot:** активний polling у Telegram.
