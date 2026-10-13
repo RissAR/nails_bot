@@ -1,161 +1,172 @@
-# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 1 — Архітектура Telegram-бота «Sense Nail Studio» (aiogram 3.x), База Даних, Сідінг Концепції та RBAC
+# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 2 — Розробка Telegram Mini App (React + Tailwind) та зв'язка з Backend API
 
-## 1. Загальна інформація та конфігурація
-- **Проект:** Telegram-бот для студії естетичного манікюру **«Sense Nail Studio»** (м. Івано-Франківськ / Хмельницький, середній ціновий сегмент).
+## 1. Загальна інформація та мета етапу
+- **Мета:** Створити фронтенд Telegram Mini App (TMA) для клієнтів та адміністратора у затвердженому дизайні **«Warm Nude & Cashmere»** та підключити його до бекенду через REST API (FastAPI), що працює на тій самій базі даних і моделях.
 - **Bot Token:** `YOUR_BOT_TOKEN_HERE`
 - **Admin TG ID:** `8607080614`
 - **Admin Username:** `@andriy_bot_dev`
-- **GitHub Repository:** `https://github.com/RissAR/nails_bot.git` (гілка `main`)
-- **Стек:** Python 3.11+, aiogram 3.x, SQLAlchemy 2.0 (Async), aiosqlite (SQLite для локального старту з готовністю перемикання на PostgreSQL через DATABASE_URL), Pydantic Settings.
+- **Стек:**
+  - **Frontend:** React 18+, Vite, TypeScript, Tailwind CSS, `@telegram-apps/sdk-react` (або `window.Telegram.WebApp`).
+  - **Backend API:** FastAPI, Uvicorn, SQLAlchemy 2.0 (Async), aiosqlite (існуюча БД `nails_salon.db`).
+  - **Telegram Bot:** aiogram 3.x (інтеграція кнопки відкриття Mini App у меню клієнта та адміна).
 
 ---
 
 ## 2. Суворі правила виконання (Strict Scope Discipline)
-1. **Zero Scope Creep:** Реалізувати **виключно** бекенд/бота, базу даних, наповнення даними концепції (seed data), авторизацію RBAC та навігаційні хендлери для ролей.
-2. **Фронтенд Mini App поки НЕ створювати:** лише підготувати базу даних та структуру під майбутній API/TMA.
-3. **Безпека секретів:** Токен та ID адміністратора зчитувати з `.env`. Створити `.env` з наданими реальними даними та `.env.example` з плейсхолдерами. Переконатися, що `.env` та `*.db` у `.gitignore`.
-4. **Git Автоматизація:** Після завершення розробки та перевірки обов'язково виконати:
-   `git add . && git commit -m "feat: bot architecture with Sense Studio concept, DB seed and RBAC" && git push origin main`.
+1. **Zero Scope Creep:** Робота стосується **виключно** створення фронтенду Mini App, API ендпоінтів та їх зв'язки. Поки НЕ налаштовуємо складне інтерактивне узгодження статусів (це буде наступний крок).
+2. **Дизайн:** Суворо дотримуватися палітри **«Warm Nude & Cashmere»** (Фон `#FDFBF7`, акценти `#D4A373`, плашки `#FAEDCD`, текст `#2B2623`, білі картки з м'якими тінями `#FFFFFF`).
+3. **Мобільна адаптивність:** Інтерфейс оптимізовано під екрани смартфонів всередині Telegram, з викликом `Telegram.WebApp.expand()` та Haptic Feedback при виборі слотів.
+4. **Автономність:** Фронтенд збирається у `frontend/dist` та роздається через FastAPI як StaticFiles, забезпечуючи роботу системи на єдиному порту.
+5. **Git Автоматизація:** Після завершення перевірки виконати:
+   `git add . && git commit -m "feat: implement Telegram Mini App frontend with React, Tailwind, and FastAPI backend API" && git push origin main`.
 
 ---
 
-## 3. Затверджена концепція та дані для наповнення (Seed Data)
-
-### 3.1. Бренд
-- **Назва:** Sense Nail Studio
-- **Вайб / Опис:** Затишна міська студія естетичного манікюру. Стерильність за медичними стандартами (сухожар, крафт-пакети), якісні матеріали, турбота про клієнта.
-- **Графік роботи:** Щодня з 09:00 до 20:00.
-- **Локація:** Центр міста, вул. Січових Стрільців.
-
-### 3.2. Команда майстрів (Таблиця `masters`):
-1. **Олена** (`Top Master`):
-   - Досвід: 4 роки.
-   - Спеціалізація: Складні техніки, моделювання нігтів, френч, ремонт та відновлення архітектури.
-   - Графік: Пн, Ср, Пт, Нд (09:00 – 19:00).
-2. **Вікторія** (`Master`):
-   - Досвід: 2 роки.
-   - Спеціалізація: Апаратний та комбі-манікюр, нюдові покриття, японський еко-манікюр, SPA-догляд.
-   - Графік: Вт, Чт, Сб (10:00 – 20:00).
-
-### 3.3. Каталог послуг (Категорії та таблиця `services`):
-- **Категорія 1: Комплекси манікюру**
-  - `Комплекс «Базовий Однотон»`: 90 хв (1.5 год), 550 грн. Виконують: Олена, Вікторія.
-  - `Комплекс «Френч / Градієнт»`: 105 хв (1 год 45 хв), 650 грн. Виконують: Олена, Вікторія.
-  - `Гігієнічний манікюр`: 45 хв, 350 грн. Виконують: Олена, Вікторія.
-  - `Японський Еко-манікюр`: 60 хв, 450 грн. Виконує: лише Вікторія.
-- **Категорія 2: Моделювання та нарощування**
-  - `Нарощування нігтів (з нуля)`: 150 хв (2.5 год), 900 грн. Виконує: лише Олена.
-  - `Корекція нарощених нігтів`: 120 хв (2 год), 750 грн. Виконує: лише Олена.
-- **Категорія 3: Доглядові послуги та Add-ons**
-  - `Ремонт / Донарощування 1 нігтя`: 15 хв, 70 грн. Виконують: Олена, Вікторія.
-  - `Укріплення гелем / акрилом`: 20 хв, 150 грн. Виконують: Олена, Вікторія.
-  - `SPA-догляд (Парафінотерапія)`: 30 хв, 200 грн. Виконують: Олена, Вікторія.
-
----
-
-## 4. Необхідна модульна структура проекту
-
+## 3. Структура проекту після оновлення
 ```text
 LeadBot/
-├── .agents/
-│   ├── current_task.md
-│   └── skills/
-│       └── execute-task/
-│           └── SKILL.md
+├── frontend/                     # Новий React + Vite проект
+│   ├── src/
+│   │   ├── api/
+│   │   │   └── client.ts         # Запити до /api (services, masters, slots, bookings)
+│   │   ├── components/
+│   │   │   ├── Header.tsx        # Інфо про салон Sense Nail Studio
+│   │   │   ├── ServiceList.tsx   # Картки послуг за категоріями
+│   │   │   ├── MasterList.tsx    # Вибір майстра (Олена, Вікторія)
+│   │   │   ├── SlotPicker.tsx    # Календар і таймслоти
+│   │   │   ├── BookingModal.tsx  # Підтвердження контактів і запис
+│   │   │   └── AdminDashboard.tsx# Панель адміна (статистика, заявки, розклад)
+│   │   ├── types/
+│   │   │   └── index.ts          # Інтерфейси Service, Master, Slot, Appointment
+│   │   ├── App.tsx               # Головний компонент (перемикання ролей клієнт/адмін)
+│   │   ├── index.css             # Tailwind директиви та палітра Warm Nude
+│   │   └── main.tsx
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── tailwind.config.js
+│   └── vite.config.ts
 ├── src/
-│   ├── __init__.py
-│   ├── config.py              # Pydantic Settings (BOT_TOKEN, ADMIN_IDS, DB_URL, SALON_NAME)
-│   ├── database/
+│   ├── api/                      # Новий модуль REST API
 │   │   ├── __init__.py
-│   │   ├── session.py         # Async engine, sessionmaker, get_db()
-│   │   ├── init_db.py         # Створення таблиць + функція seed_initial_data()
-│   │   └── models/
+│   │   ├── app.py                # FastAPI додаток, CORS, роздача static frontend/dist
+│   │   └── routes/
 │   │       ├── __init__.py
-│   │       ├── base.py        # DeclarativeBase, BaseDBModel
-│   │       ├── user.py        # User (telegram_id, username, full_name, role)
-│   │       ├── category.py    # Category (id, name, slug)
-│   │       ├── service.py     # Service (category_id, name, description, duration_minutes, price, is_active)
-│   │       ├── master.py      # Master (name, title, bio, is_active) та MasterService
-│   │       ├── schedule.py    # Schedule (master_id, day_of_week, start_time, end_time, is_day_off)
-│   │       └── appointment.py # Appointment (client_id, master_id, service_id, date, start_time, end_time, status)
-│   ├── filters/
-│   │   ├── __init__.py
-│   │   └── admin.py           # IsAdminFilter
-│   ├── middlewares/
-│   │   ├── __init__.py
-│   │   └── auth.py            # AuthMiddleware: реєстрація у БД, присвоєння ролі admin для 8607080614
-│   ├── keyboards/
-│   │   ├── __init__.py
-│   │   ├── client_kb.py       # Inline-клавіатури клієнта (Каталог, Майстри, Контакти, Запис)
-│   │   └── admin_kb.py        # Панель керування адміна (Послуги, Майстри, Заявки, Статистика)
-│   ├── handlers/
-│   │   ├── __init__.py
-│   │   ├── client.py          # /start (для клієнта), перегляд каталогу з БД, майстрів, контактів
-│   │   ├── admin.py           # /start (для адміна), /admin, навігація по адмін-панелі
-│   │   └── common.py          # /help, обробка невідомих команд
-│   └── main.py                # Запуск бота (aiogram 3.x polling), підключення мідлварей та роутерів
-├── .env
-├── .env.example
-├── .gitignore
-├── requirements.txt
-└── README.md
+│   │       ├── services.py       # GET /api/services
+│   │       ├── masters.py        # GET /api/masters
+│   │       ├── slots.py          # GET /api/slots
+│   │       ├── bookings.py       # POST /api/bookings, GET /api/admin/bookings
+│   │       └── auth.py           # GET /api/auth/me (валідація initData та роль)
+│   ├── main.py                   # Оновлений запуск: паралельно FastAPI + aiogram polling
+│   ├── config.py                 # Додано WEBAPP_URL, API_HOST, API_PORT
+│   └── ... (існуючі модулі БД, моделей, хендлерів)
+├── requirements.txt              # Додано fastapi>=0.110.0, uvicorn>=0.28.0
+└── .agents/current_task.md
 ```
 
 ---
 
-## 5. Деталі технічної реалізації
+## 4. Специфікація Backend API (`src/api/`)
 
-### 5.1. Конфігурація (`src/config.py`)
-- Використовувати `pydantic-settings`:
-  ```python
-  class Settings(BaseSettings):
-      BOT_TOKEN: str = "YOUR_BOT_TOKEN_HERE"
-      ADMIN_IDS: list[int] = [8607080614]
-      ADMIN_USERNAME: str = "@andriy_bot_dev"
-      DATABASE_URL: str = "sqlite+aiosqlite:///./nails_salon.db"
-      SALON_NAME: str = "Sense Nail Studio"
-      model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
-  ```
-
-### 5.2. База даних та авто-сідінг (`src/database/init_db.py`)
-- Під час старту бота викликається `init_db()`.
-- Якщо таблиці порожні — автоматично створюються категорії, майстри, послуги, зв'язки `MasterService` та графіки роботи зі списку Розділу 3.
-- Повторний запуск бота не повинен дублювати дані.
-
-### 5.3. Авторизація (RBAC Middleware & Filter)
-- **`AuthMiddleware`**:
-  - На кожен апдейт (`Message`, `CallbackQuery`) перевіряє наявність користувача в БД.
-  - Якщо користувача немає — створює його (`role="admin"` якщо `telegram_id in ADMIN_IDS`, інакше `role="client"`).
-  - Якщо користувач вже є, але його ID в `ADMIN_IDS` — гарантує, що його роль оновлена до `"admin"`.
-  - Інжектує `db_user` та `session` у `data` хендлера.
-- **`IsAdminFilter`**:
-  - Перевіряє права адміністратора для адмінських роутерів.
-
-### 5.4. Інтерфейс бота
-- **Клієнтський режим (`handlers/client.py`):**
-  - Привітання: опис студії *Sense Nail Studio*, години роботи, адреса.
-  - Кнопки:
-    - 💅 **Послуги та ціни:** інтерактивний перегляд категорій та послуг, отриманих динамічно з бази даних (із зазначенням вартості та тривалості).
-    - 👩‍🎨 **Наші майстри:** картки Олени та Вікторії з їхньою спеціалізацією.
-    - 📅 **Записатися онлайн:** інлайн-кнопка, яка інформує про запуск онлайн-запису через Mini App у наступному релізі.
-    - 📍 **Контакти:** адреса, години роботи, посилання на зв'язок з адміністратором `@andriy_bot_dev`.
-- **Адміністраторський режим (`handlers/admin.py`):**
-  - При запуску адміном показує спеціальне меню керування:
-    - 📋 **Список послуг:** швидкий перегляд активних послуг з БД.
-    - 👩‍🎨 **Майстри та розклад:** статус майстрів та робочі дні.
-    - 🔔 **Активні заявки:** перегляд заявок (повідомлення про відсутність нових заявок, оскільки система тільки розгортається).
-    - 📊 **Клієнти студії:** кількість зареєстрованих клієнтів у базі даних.
+1. **`GET /api/services`**:
+   - Повертає список категорій з активними послугами з БД (`id`, `name`, `duration_minutes`, `price`, `description`, `category_name`).
+2. **`GET /api/masters`**:
+   - Повертає список майстрів (`id`, `name`, `title`, `bio`, список `service_ids`, які виконує майстер).
+3. **`GET /api/slots?master_id={id}&date={YYYY-MM-DD}&service_id={id}`**:
+   - Розраховує вільні слоти на обрану дату для вказаного майстра з урахуванням:
+     - робочих годин майстра на цей день (з таблиці `schedules`);
+     - тривалості послуги + 15 хв буферного часу;
+     - вже зайнятих слотів з таблиці `appointments` (`status in ['pending', 'confirmed']`).
+   - Повертає масив часових рядків: `["10:00", "11:45", "14:00", "16:30"]`.
+4. **`POST /api/bookings`**:
+   - Приймає JSON:
+     ```json
+     {
+       "service_id": 1,
+       "master_id": 1,
+       "booking_date": "2026-10-15",
+       "start_time": "14:00",
+       "client_name": "Олена",
+       "client_phone": "+380970000000",
+       "telegram_id": 123456789,
+       "notes": "коментар"
+     }
+     ```
+   - Створює запис `Appointment` зі статусом `"pending"`.
+   - Повертає об'єкт створеного запису з `id` та `status`.
+5. **`GET /api/admin/bookings`**:
+   - Повертає список останніх заявок з деталями клієнта, послуги, майстра та статусу.
+6. **`GET /api/admin/stats`**:
+   - Повертає лічильники: кількість заявок `pending`, кількість підтверджених на сьогодні, загальну суму замовлень.
+7. **`GET /api/auth/me`**:
+   - Приймає заголовок або query-параметр `init_data` (або `tg_id` у режимі розробки).
+   - Повертає `{ "telegram_id": ..., "role": "admin" | "client", "first_name": ... }`.
 
 ---
 
-## 6. Критерії приймання та валідація (Acceptance Criteria)
-1. Усі залежності зафіксовані в `requirements.txt` (`aiogram>=3.4.0`, `sqlalchemy>=2.0.0`, `aiosqlite`, `pydantic-settings`).
-2. Код проходить перевірку компіляції (`python -m py_compile src/**/*.py`).
-3. При запуску бота база даних успішно створюється і наповнюється сід-даними (2 майстри, 3 категорії, 9 послуг з графіками).
-4. Авторизація працює: для `8607080614` відкривається панель адміністратора, для звичайного користувача — клієнтське меню.
-5. Зміни закомічені та відправлені на GitHub:
+## 5. Специфікація Frontend Mini App (`frontend/`)
+
+### 5.1. Дизайн та палітра Tailwind
+У `tailwind.config.js` налаштувати кольори:
+```javascript
+colors: {
+  nude: {
+    bg: '#FDFBF7',
+    surface: '#FFFFFF',
+    primary: '#D4A373',
+    primaryHover: '#C59261',
+    accent: '#FAEDCD',
+    secondary: '#F1EAE0',
+    border: '#E8E2D8',
+    text: '#2B2623',
+    muted: '#7D7571',
+    green: '#3E6B48',
+    greenLight: '#E2EBE4',
+  }
+}
+```
+
+### 5.2. Функціональність Клієнтської частини:
+- Вітальний блок «Sense Nail Studio» (Івано-Франківськ, вул. Січових Стрільців, 09:00–20:00).
+- Крок 1: Таби категорій ("Всі", "Комплекси", "Нарощування", "Догляд") та вибір картки послуги (з динамічним підсвічуванням галочки).
+- Крок 2: Вибір майстра — Олена (Top Master) або Вікторія (Master). Якщо послуга недоступна у майстра — картка блокується з відповідною підказкою.
+- Крок 3: Горизонтальний календар на 14 днів вперед + динамічне завантаження вільних слотів з `/api/slots`.
+- Закріплена нижня панель (Sticky Footer) з фінальною сумою, тривалістю та кнопкою «Записатися».
+- Модальне вікно підтвердження: ім'я та телефон (автозаповнення з Telegram, якщо доступно), кнопка підтвердження відправки.
+- Екран успіху: підтвердження прийняття заявки в обробку.
+
+### 5.3. Функціональність Адміністраторської частини:
+- Якщо користувач є адміністратором (`role === "admin"` або `telegram_id === 8607080614`), у шапці доступний перемикач `[ 💅 Клієнтська аппка | ⚙️ Панель адміна ]` (як у затвердженому макеті).
+- Відображення карток метрик (Нові заявки, Сьогодні, Каса).
+- Черга заявок у статусі `pending` з деталями клієнта та сумою.
+- Огляд графіка майстрів на поточний день.
+
+---
+
+## 6. Інтеграція в Telegram Bot (`src/`)
+
+- В `src/config.py`:
+  - `WEBAPP_URL: str = "http://localhost:8000/app"` (або конфігурований URL з `.env`).
+  - `API_HOST: str = "0.0.0.0"`
+  - `API_PORT: int = 8000`
+- В `src/keyboards/client_kb.py`:
+  - Кнопка "💅 Онлайн-запис" тепер має тип `web_app=WebAppInfo(url=settings.WEBAPP_URL)`.
+- В `src/keyboards/admin_kb.py`:
+  - Додати кнопку "📱 Відкрити адмін-панель TMA" з `web_app=WebAppInfo(url=settings.WEBAPP_URL)`.
+- В `src/main.py`:
+  - Запуск uvicorn сервера з FastAPI одночасно з лонґ-полінгом бота за допомогою `asyncio.gather()`.
+
+---
+
+## 7. Критерії приймання та валідація (Acceptance Criteria)
+1. Фронтенд успішно компілюється: `npm run build` у директорії `frontend/` завершується з кодом 0, згенеровано файли у `frontend/dist`.
+2. Бекенд API успішно піднімається на порті 8000 і віддає дані:
+   - `GET http://localhost:8000/api/services` повертає JSON з 9 послугами;
+   - `GET http://localhost:8000/api/masters` повертає Олену та Вікторію;
+   - `GET http://localhost:8000/app/` віддає зібраний клієнтський SPA Mini App.
+3. У боті кнопки «Онлайн-запис» та «Адмін-панель TMA» відкривають WebApp.
+4. Всі зміни закомічені та відправлені на GitHub:
    ```bash
    git add .
-   git commit -m "feat: bot architecture with Sense Studio concept, DB seed and RBAC"
+   git commit -m "feat: implement Telegram Mini App frontend with React, Tailwind, and FastAPI backend API"
    git push origin main
    ```
