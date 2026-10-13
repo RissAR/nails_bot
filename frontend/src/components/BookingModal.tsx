@@ -14,6 +14,7 @@ interface BookingModalProps {
     first_name?: string;
     phone_number?: string;
   } | null;
+  discountPercent?: number;
   onSubmit: (data: { name: string; phone: string; notes?: string }) => Promise<void>;
   isSubmitting: boolean;
   bookingSuccess: boolean;
@@ -28,6 +29,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   date,
   time,
   telegramUser,
+  discountPercent = 0,
   onSubmit,
   isSubmitting,
   bookingSuccess,
@@ -37,6 +39,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [phoneSuffix, setPhoneSuffix] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const finalPrice =
+    discountPercent > 0
+      ? Math.round(service.price * (1 - discountPercent / 100))
+      : service.price;
 
   useEffect(() => {
     if (telegramUser?.first_name) {
@@ -161,7 +168,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
                 <div className="flex justify-between pt-1 border-t border-nude-border/60">
                   <span className="text-nude-muted">Вартість:</span>
-                  <span className="font-extrabold text-nude-primary text-sm">{service.price} грн</span>
+                  <div className="flex items-center gap-1.5">
+                    {discountPercent > 0 && (
+                      <span className="text-xs text-nude-muted line-through">{service.price} грн</span>
+                    )}
+                    <span className="font-extrabold text-nude-primary text-sm">{finalPrice} грн</span>
+                  </div>
                 </div>
               </div>
 
@@ -177,7 +189,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Summary pill */}
               <div className="bg-nude-bg p-3 rounded-2xl border border-nude-border text-xs space-y-1.5">
-                <div className="font-bold text-nude-text text-sm mb-1">{service.name}</div>
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-nude-text text-sm">{service.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    {discountPercent > 0 ? (
+                      <>
+                        <span className="text-[11px] text-nude-muted line-through">{service.price} грн</span>
+                        <span className="font-extrabold text-nude-primary text-xs">{finalPrice} грн</span>
+                      </>
+                    ) : (
+                      <span className="font-extrabold text-nude-primary text-xs">{service.price} грн</span>
+                    )}
+                  </div>
+                </div>
                 <div className="flex items-center gap-3 text-nude-muted">
                   <span className="flex items-center gap-1">
                     <User className="w-3.5 h-3.5 text-nude-primary" />
@@ -193,6 +217,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   </span>
                 </div>
               </div>
+
+              {discountPercent > 0 && (
+                <div className="p-2.5 rounded-xl bg-nude-greenLight text-nude-green text-xs font-bold flex items-center justify-between border border-nude-green/20">
+                  <span>🏷 Ваша персональна знижка:</span>
+                  <span className="bg-nude-surface px-2 py-0.5 rounded-lg shadow-xs">-{discountPercent}%</span>
+                </div>
+              )}
 
               {error && (
                 <div className="p-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-medium border border-red-200">
@@ -284,7 +315,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     Надсилання заявки...
                   </>
                 ) : (
-                  `Записатися (${service.price} грн)`
+                  `Записатися (${finalPrice} грн)`
                 )}
               </button>
             </form>

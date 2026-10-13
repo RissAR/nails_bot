@@ -208,10 +208,23 @@ async def seed_initial_data() -> None:
 
 async def init_db() -> None:
     """Initialize database tables and seed data."""
+    from sqlalchemy import text
     # Ensure models are imported
     import src.database.models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Safe migration for existing SQLite DB
+        for col_def in [
+            "completed_visits INTEGER DEFAULT 0 NOT NULL",
+            "total_spent REAL DEFAULT 0.0 NOT NULL",
+            "discount_percent INTEGER DEFAULT 0 NOT NULL",
+        ]:
+            col_name = col_def.split()[0]
+            try:
+                await conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_def}"))
+                logger.info("Migrated users table: added column %s", col_name)
+            except Exception:
+                pass
 
     await seed_initial_data()

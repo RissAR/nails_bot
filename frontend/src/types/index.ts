@@ -75,4 +75,5 @@ export interface UserAuth {
   role: 'admin' | 'client';
   first_name: string | null;
   username: string | null;
+  discount_percent?: number;
 }

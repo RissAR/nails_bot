@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
-from src.database.models import Appointment, Schedule, Service
+from src.database.models import Appointment, Master, Schedule, Service
 from src.database.session import async_session_maker
 
 router = APIRouter(prefix="/slots", tags=["Slots"])
@@ -21,8 +21,13 @@ async def get_free_slots(
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
     async with async_session_maker() as session:
+        # Check master exists and is active
+        master = await session.get(Master, master_id)
+        if not master or not master.is_active:
+            return []
+
         # 1. Fetch service to get duration
-        svc_stmt = select(Service).where(Service.id == service_id)
+        svc_stmt = select(Service).where(Service.id == service_id, Service.is_active == True)  # noqa: E712
         svc_res = await session.execute(svc_stmt)
         service = svc_res.scalar_one_or_none()
         if not service:

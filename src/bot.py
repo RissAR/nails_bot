@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from src.config import settings
 
@@ -101,6 +101,7 @@ async def notify_client_booking_status(
     master_name: str,
     booking_date: str,
     start_time: str,
+    reason: str | None = None,
 ) -> None:
     """Notify client about appointment status change (confirmed or rejected)."""
     if not client_tg_id or client_tg_id <= 0:
@@ -110,6 +111,7 @@ async def notify_client_booking_status(
     s_name = html.escape(service_name)
     m_name = html.escape(master_name)
 
+    reply_markup = None
     if status == "confirmed":
         text = (
             "✨ <b>Ваш запис підтверджено!</b>\n\n"
@@ -120,16 +122,29 @@ async def notify_client_booking_status(
             "Чекаємо на вас у Sense Nail Studio! Якщо ваші плани зміняться, будь ласка, попередьте нас завчасно."
         )
     elif status == "rejected":
+        reason_text = html.escape(reason) if reason else "Технічна перерва або зайнятість майстра."
         text = (
-            f"😔 <b>На жаль, ваш запис на {booking_date} о {start_time} відхилено адміністратором.</b>\n\n"
-            "Можливо, на цей час заплановано технічну перерву або майстер зайнятий.\n"
-            f"Будь ласка, оберіть інший зручний час у Mini App або зв'яжіться з нами: {settings.ADMIN_USERNAME}."
+            f"😔 <b>Ваш запис на {booking_date} о {start_time} скасовано</b>\n\n"
+            f"<b>Причина:</b> {reason_text}\n\n"
+            f"Будь ласка, оберіть інший зручний час у нашому Mini App або зв'яжіться з адміністратором: {settings.ADMIN_USERNAME}"
         )
+        is_https = settings.WEBAPP_URL.startswith("https://")
+        if is_https:
+            btn = InlineKeyboardButton(
+                text="💅 Обрати інший час (Mini App)",
+                web_app=WebAppInfo(url=settings.WEBAPP_URL),
+            )
+        else:
+            btn = InlineKeyboardButton(
+                text="💅 Обрати інший час (Mini App)",
+                callback_data="client_webapp_http_warning",
+            )
+        reply_markup = InlineKeyboardMarkup(inline_keyboard=[[btn]])
     else:
         return
 
     try:
-        await bot.send_message(chat_id=client_tg_id, text=text)
+        await bot.send_message(chat_id=client_tg_id, text=text, reply_markup=reply_markup)
         logger.info("Sent %s notification to client %d", status, client_tg_id)
     except Exception as e:
         logger.error("Failed to notify client %d about %s: %s", client_tg_id, status, e)

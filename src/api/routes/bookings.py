@@ -238,7 +238,12 @@ async def confirm_booking(
         if not apt:
             raise HTTPException(status_code=404, detail="Запис не знайдено")
 
-        apt.status = "confirmed"
+        if apt.status != "confirmed":
+            apt.status = "confirmed"
+            if apt.client:
+                apt.client.completed_visits += 1
+                if apt.service:
+                    apt.client.total_spent += apt.service.price
         await session.commit()
         await session.refresh(apt)
 
@@ -276,6 +281,7 @@ async def confirm_booking(
 @router.patch("/admin/bookings/{booking_id}/reject", response_model=AdminBookingItem)
 async def reject_booking(
     booking_id: int = Path(..., description="ID запису"),
+    reason: str | None = Query(None, description="Причина відхилення"),
 ) -> AdminBookingItem:
     """Reject an appointment and notify the client in Telegram."""
     async with async_session_maker() as session:
@@ -294,6 +300,8 @@ async def reject_booking(
             raise HTTPException(status_code=404, detail="Запис не знайдено")
 
         apt.status = "rejected"
+        if reason:
+            apt.cancellation_reason = html.escape(reason.strip())
         await session.commit()
         await session.refresh(apt)
 
@@ -307,6 +315,7 @@ async def reject_booking(
                     master_name=apt.master.name if apt.master else "Майстер",
                     booking_date=apt.booking_date.strftime("%d.%m.%Y"),
                     start_time=apt.start_time.strftime("%H:%M"),
+                    reason=apt.cancellation_reason,
                 )
             except Exception:
                 pass

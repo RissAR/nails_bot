@@ -332,8 +332,20 @@ export const App: React.FC = () => {
               </div>
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="text-lg font-black text-nude-text">
-                  {selectedService.price} грн
+                  {auth?.discount_percent && auth.discount_percent > 0
+                    ? `${Math.round(selectedService.price * (1 - auth.discount_percent / 100))} грн`
+                    : `${selectedService.price} грн`}
                 </span>
+                {auth?.discount_percent && auth.discount_percent > 0 && (
+                  <>
+                    <span className="text-xs text-nude-muted line-through ml-1">
+                      {selectedService.price} грн
+                    </span>
+                    <span className="text-[10px] font-bold text-nude-green bg-nude-greenLight px-1.5 py-0.5 rounded ml-1">
+                      -{auth.discount_percent}%
+                    </span>
+                  </>
+                )}
                 {selectedSlot && (
                   <span className="text-xs text-nude-primary font-bold ml-1">
                     на {selectedSlot}
@@ -369,6 +381,7 @@ export const App: React.FC = () => {
           date={selectedDate}
           time={selectedSlot}
           telegramUser={tgUser}
+          discountPercent={auth?.discount_percent || 0}
           onSubmit={handleBookingSubmit}
           isSubmitting={isSubmitting}
           bookingSuccess={bookingSuccess}

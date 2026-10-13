@@ -16,6 +16,7 @@ class UserAuthResponse(BaseModel):
     role: str
     first_name: str | None
     username: str | None
+    discount_percent: int = 0
 
 
 @router.get("/me", response_model=UserAuthResponse)
@@ -23,8 +24,9 @@ async def get_current_user(
     tg_id: int | None = Query(None, description="Telegram ID in dev mode"),
     init_data: str | None = Query(None, description="Telegram WebApp initData query string"),
     x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),
+    discount_override: int | None = None,
 ) -> UserAuthResponse:
-    """Validate user from initData or dev tg_id and return role."""
+    """Validate user from initData or dev tg_id and return role and loyalty discount."""
     resolved_tg_id: int | None = tg_id
     first_name: str | None = None
     username: str | None = None
@@ -48,11 +50,13 @@ async def get_current_user(
             role="client",
             first_name="Гість",
             username=None,
+            discount_percent=0,
         )
 
     # Check if admin
     is_admin = resolved_tg_id in settings.ADMIN_IDS
 
+    discount_percent = 0
     # Check in DB
     async with async_session_maker() as session:
         u_stmt = select(User).where(User.telegram_id == resolved_tg_id)
@@ -64,10 +68,13 @@ async def get_current_user(
             first_name = user.full_name
         if user and not username:
             username = user.username
+        if user:
+            _, discount_percent = user.loyalty_info
 
     return UserAuthResponse(
         telegram_id=resolved_tg_id,
         role=role,
         first_name=first_name or ("Адміністратор" if role == "admin" else "Клієнт"),
         username=username,
+        discount_percent=discount_percent,
     )
