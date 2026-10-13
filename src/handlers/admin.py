@@ -1,13 +1,14 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.config import settings
 from src.database.models.appointment import Appointment
+from src.database.models.category import Category
 from src.database.models.master import Master
-from src.database.models.service import Service
 from src.database.models.user import User
 from src.filters.admin import IsAdminFilter
 from src.keyboards.admin_kb import get_admin_back_kb, get_admin_main_kb
@@ -16,10 +17,21 @@ admin_router = Router(name="admin_router")
 admin_router.message.filter(IsAdminFilter())
 admin_router.callback_query.filter(IsAdminFilter())
 
+DAY_NAMES = {
+    0: "Пн",
+    1: "Вт",
+    2: "Ср",
+    3: "Чт",
+    4: "Пт",
+    5: "Сб",
+    6: "Нд",
+}
 
 ADMIN_WELCOME_TEXT = (
-    "👑 <b>Вітаємо в панелі керування салоном!</b>\n\n"
-    "Оберіть потрібний розділ для керування:"
+    f"👑 <b>Панель керування студією «{settings.SALON_NAME}»</b>\n\n"
+    "Тут ви можете оперативно переглядати структуру послуг, розклад майстрів, "
+    "статистику зареєстрованих клієнтів та чергу заявок на запис.\n\n"
+    "Оберіть потрібний розділ:"
 )
 
 
@@ -49,25 +61,33 @@ async def admin_services_callback(
     callback: CallbackQuery,
     session: AsyncSession,
 ) -> None:
-    """Display list of salon services."""
-    stmt = select(Service).order_by(Service.id)
+    """Display active services grouped by categories."""
+    stmt = (
+        select(Category)
+        .options(selectinload(Category.services))
+        .order_by(Category.id)
+    )
     result = await session.execute(stmt)
-    services = result.scalars().all()
+    categories = list(result.scalars().all())
 
-    if not services:
+    if not categories:
         text = (
-            "📋 <b>Список послуг:</b>\n\n"
-            "<i>Наразі жодної послуги не додано до бази даних.</i>"
+            "📋 <b>Каталог послуг у базі даних:</b>\n\n"
+            "<i>Категорії та послуги відсутні. Перевірте сідінг бази даних.</i>"
         )
     else:
-        text_lines = ["📋 <b>Список послуг салону:</b>\n"]
-        for s in services:
-            status_emoji = "✅" if s.is_active else "❌"
-            text_lines.append(
-                f"{status_emoji} <b>{s.name}</b>\n"
-                f"   ⏱ Тривалість: {s.duration_minutes} хв.\n"
-                f"   💰 Ціна: {s.price:.2f} грн\n"
-            )
+        text_lines = [f"📋 <b>Каталог послуг «{settings.SALON_NAME}»:</b>\n"]
+        for cat in categories:
+            text_lines.append(f"📁 <b>{cat.name}</b>:")
+            active_services = [s for s in cat.services if s.is_active]
+            if not active_services:
+                text_lines.append("   <i>(немає активних послуг)</i>")
+            else:
+                for s in active_services:
+                    text_lines.append(
+                        f"   • <b>{s.name}</b> — {s.duration_minutes} хв / {s.price:.0f} грн"
+                    )
+            text_lines.append("")
         text = "\n".join(text_lines)
 
     if callback.message:
@@ -80,26 +100,38 @@ async def admin_masters_schedule_callback(
     callback: CallbackQuery,
     session: AsyncSession,
 ) -> None:
-    """Display masters schedule placeholder and list."""
-    stmt = select(Master).order_by(Master.id)
+    """Display masters status and working schedules."""
+    stmt = (
+        select(Master)
+        .options(selectinload(Master.schedules))
+        .order_by(Master.id)
+    )
     result = await session.execute(stmt)
-    masters = result.scalars().all()
+    masters = list(result.scalars().all())
 
-    text_lines = [
-        "📅 <b>Графік майстрів:</b>\n",
-        "<i>(Попередній перегляд / повне керування буде доступно в Mini App)</i>\n",
-    ]
+    text_lines = [f"👩‍🎨 <b>Майстри та розклад «{settings.SALON_NAME}»:</b>\n"]
 
     if not masters:
-        text_lines.append("<i>Список майстрів наразі порожній.</i>")
+        text_lines.append("<i>Список майстрів порожній.</i>")
     else:
-        text_lines.append("<b>Зареєстровані майстри:</b>")
         for m in masters:
-            status_emoji = "✅" if m.is_active else "❌"
-            text_lines.append(f"• {status_emoji} {m.name}")
+            status_emoji = "🟢" if m.is_active else "🔴"
+            schedule_days = []
+            hours = ""
+            for sch in m.schedules:
+                if not sch.is_day_off:
+                    schedule_days.append(DAY_NAMES.get(sch.day_of_week, str(sch.day_of_week)))
+                    hours = f"{sch.start_time.strftime('%H:%M')} – {sch.end_time.strftime('%H:%M')}"
+
+            days_str = ", ".join(schedule_days) if schedule_days else "Немає фіксованих днів"
+            full_sched = f"{days_str} ({hours})" if hours else days_str
+
+            text_lines.append(
+                f"{status_emoji} <b>{m.name}</b> ({m.title})\n"
+                f"   📅 Графік: {full_sched}\n"
+            )
 
     text = "\n".join(text_lines)
-
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_admin_back_kb())
     await callback.answer()
@@ -122,12 +154,12 @@ async def admin_pending_appointments_callback(
         .order_by(Appointment.booking_date, Appointment.start_time)
     )
     result = await session.execute(stmt)
-    appointments = result.scalars().all()
+    appointments = list(result.scalars().all())
 
     if not appointments:
         text = (
-            "🔔 <b>Активні заявки:</b>\n\n"
-            "<i>Наразі немає активних заявок зі статусом 'pending'.</i>"
+            "🔔 <b>Активні заявки на запис:</b>\n\n"
+            "<i>Наразі нових заявок немає. Онлайн-запис розгортається для Mini App.</i>"
         )
     else:
         text_lines = ["🔔 <b>Активні заявки на запис:</b>\n"]
@@ -140,9 +172,36 @@ async def admin_pending_appointments_callback(
                 f"   👤 Клієнт: {client_name}\n"
                 f"   💅 Майстер: {master_name}\n"
                 f"   📅 Дата: {apt.booking_date.strftime('%d.%m.%Y')}\n"
-                f"   ⏰ Час: {apt.start_time.strftime('%H:%M')} - {apt.end_time.strftime('%H:%M')}\n"
+                f"   ⏰ Час: {apt.start_time.strftime('%H:%M')} – {apt.end_time.strftime('%H:%M')}\n"
             )
         text = "\n".join(text_lines)
+
+    if callback.message:
+        await callback.message.edit_text(text, reply_markup=get_admin_back_kb())
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "admin_clients_stats")
+async def admin_clients_stats_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """Display registered client and system statistics."""
+    clients_count = await session.scalar(
+        select(func.count(User.id)).where(User.role == "client")
+    ) or 0
+    total_users = await session.scalar(select(func.count(User.id))) or 0
+    admins_count = await session.scalar(
+        select(func.count(User.id)).where(User.role == "admin")
+    ) or 0
+
+    text = (
+        f"📊 <b>Статистика користувачів «{settings.SALON_NAME}»:</b>\n\n"
+        f"👥 Зареєстровані клієнти: <b>{clients_count}</b>\n"
+        f"👑 Адміністратори: <b>{admins_count}</b>\n"
+        f"📈 Загальна кількість користувачів у системі: <b>{total_users}</b>\n\n"
+        "<i>Користувачі автоматично фіксуються в БД при взаємодії з ботом.</i>"
+    )
 
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_admin_back_kb())

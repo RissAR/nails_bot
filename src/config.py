@@ -1,5 +1,5 @@
 import json
-from typing import Any, Union
+from typing import Any
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,7 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     BOT_TOKEN: str = "YOUR_BOT_TOKEN_HERE"
     ADMIN_IDS: list[int] = [8607080614]
+    ADMIN_USERNAME: str = "@andriy_bot_dev"
     DATABASE_URL: str = "sqlite+aiosqlite:///./nails_salon.db"
+    SALON_NAME: str = "Sense Nail Studio"
 
     model_config = SettingsConfigDict(
         env_file=".env",

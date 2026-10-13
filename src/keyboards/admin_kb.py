@@ -9,19 +9,21 @@ def get_admin_main_kb() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="📋 Список послуг",
                     callback_data="admin_services",
-                )
-            ],
-            [
+                ),
                 InlineKeyboardButton(
-                    text="📅 Графік майстрів",
+                    text="👩‍🎨 Майстри та розклад",
                     callback_data="admin_masters_schedule",
-                )
+                ),
             ],
             [
                 InlineKeyboardButton(
                     text="🔔 Активні заявки",
                     callback_data="admin_pending_appointments",
-                )
+                ),
+                InlineKeyboardButton(
+                    text="📊 Клієнти студії",
+                    callback_data="admin_clients_stats",
+                ),
             ],
         ]
     )

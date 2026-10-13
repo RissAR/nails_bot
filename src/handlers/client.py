@@ -1,18 +1,42 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from src.config import settings
+from src.database.models.category import Category
+from src.database.models.master import Master
+from src.database.models.service import Service
 from src.database.models.user import User
-from src.keyboards.client_kb import get_client_back_kb, get_client_main_kb
+from src.keyboards.client_kb import (
+    get_categories_kb,
+    get_category_services_kb,
+    get_client_back_kb,
+    get_client_main_kb,
+)
 
 client_router = Router(name="client_router")
 
+DAY_NAMES = {
+    0: "Пн",
+    1: "Вт",
+    2: "Ср",
+    3: "Чт",
+    4: "Пт",
+    5: "Сб",
+    6: "Нд",
+}
 
 CLIENT_WELCOME_TEXT = (
-    "✨ <b>Ласкаво просимо до нашого салону манікюру!</b> ✨\n\n"
-    "Ми створюємо ідеальний манікюр з турботою про ваші нігтики. "
-    "У нас ви знайдете бездоганну якість, 100% стерильність та затишну атмосферу.\n\n"
-    "Оберіть дію в меню нижче:"
+    f"✨ <b>Вітаємо у студії естетичного манікюру «{settings.SALON_NAME}»!</b> ✨\n\n"
+    "Простір, де манікюр — це відчуття доглянутості, спокою та бездоганної естетики. "
+    "Ми дотримуємося медичних стандартів стерильності (сухожар, крафт-пакети) "
+    "та працюємо виключно на преміальних матеріалах.\n\n"
+    "📍 <b>Локація:</b> м. Івано-Франківськ, центр, вул. Січових Стрільців\n"
+    "🕒 <b>Графік роботи:</b> Щодня з 09:00 до 20:00\n\n"
+    "Оберіть потрібний розділ для перегляду:"
 )
 
 
@@ -36,29 +60,132 @@ async def client_main_menu_callback(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-@client_router.callback_query(F.data == "client_booking_soon")
-async def client_booking_soon_callback(callback: CallbackQuery) -> None:
-    """Handle online booking button."""
+@client_router.callback_query(F.data == "client_services")
+async def client_services_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """Display interactive categories from the database."""
+    stmt = select(Category).order_by(Category.id)
+    result = await session.execute(stmt)
+    categories = list(result.scalars().all())
+
+    if not categories:
+        text = "💅 <b>Каталог послуг:</b>\n\n<i>Каталог наразі оновлюється адміністратором.</i>"
+        if callback.message:
+            await callback.message.edit_text(text, reply_markup=get_client_back_kb())
+        await callback.answer()
+        return
+
     text = (
-        "💅 <b>Онлайн-запис через Telegram Mini App</b>\n\n"
-        "🚀 Зовсім скоро ви зможете зручно обрати майстра, бажану послугу, "
-        "дату та вільний час безпосередньо у нашому боті через інтерактивний додаток!\n\n"
-        "Слідкуйте за оновленнями або зв'яжіться з адміністратором у розділі Контакти."
+        f"💅 <b>Каталог послуг {settings.SALON_NAME}:</b>\n\n"
+        "Оберіть категорію нижче, щоб переглянути детальний опис, тривалість та ціни:"
     )
+    if callback.message:
+        await callback.message.edit_text(text, reply_markup=get_categories_kb(categories))
+    await callback.answer()
+
+
+@client_router.callback_query(F.data.startswith("client_cat:"))
+async def client_category_details_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """Display services for the selected category."""
+    try:
+        category_id = int(callback.data.split(":")[1])
+    except (IndexError, ValueError):
+        await callback.answer("Помилка навігації", show_alert=True)
+        return
+
+    cat_stmt = select(Category).where(Category.id == category_id)
+    cat_result = await session.execute(cat_stmt)
+    category = cat_result.scalar_one_or_none()
+
+    if not category:
+        await callback.answer("Категорію не знайдено", show_alert=True)
+        return
+
+    stmt = (
+        select(Service)
+        .options(selectinload(Service.masters))
+        .where(Service.category_id == category_id, Service.is_active == True)  # noqa: E712
+        .order_by(Service.price)
+    )
+    result = await session.execute(stmt)
+    services = list(result.scalars().all())
+
+    text_lines = [f"📂 <b>{category.name}</b>\n"]
+    if not services:
+        text_lines.append("<i>У цій категорії поки немає активних послуг.</i>")
+    else:
+        for idx, s in enumerate(services, 1):
+            masters_str = ", ".join(m.name for m in s.masters) if s.masters else "Всі майстри"
+            text_lines.append(
+                f"{idx}. <b>{s.name}</b>\n"
+                f"   ⏱ Тривалість: {s.duration_minutes} хв | 💰 <b>{s.price:.0f} грн</b>\n"
+                f"   📝 <i>{s.description or 'Професійний догляд'}</i>\n"
+                f"   👩‍🎨 Виконують: {masters_str}\n"
+            )
+
+    text = "\n".join(text_lines)
+    if callback.message:
+        await callback.message.edit_text(text, reply_markup=get_category_services_kb())
+    await callback.answer()
+
+
+@client_router.callback_query(F.data == "client_masters")
+async def client_masters_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """Display cards of salon masters with bios and schedules."""
+    stmt = (
+        select(Master)
+        .options(selectinload(Master.schedules))
+        .where(Master.is_active == True)  # noqa: E712
+        .order_by(Master.id)
+    )
+    result = await session.execute(stmt)
+    masters = list(result.scalars().all())
+
+    text_lines = [f"👩‍🎨 <b>Команда майстрів {settings.SALON_NAME}:</b>\n"]
+    if not masters:
+        text_lines.append("<i>Інформація про майстрів оновлюється.</i>")
+    else:
+        for m in masters:
+            schedule_days = []
+            hours = ""
+            for sch in m.schedules:
+                if not sch.is_day_off:
+                    schedule_days.append(DAY_NAMES.get(sch.day_of_week, str(sch.day_of_week)))
+                    hours = f"{sch.start_time.strftime('%H:%M')} – {sch.end_time.strftime('%H:%M')}"
+
+            days_str = ", ".join(schedule_days) if schedule_days else "За домовленістю"
+            schedule_info = f"{days_str} ({hours})" if hours else days_str
+
+            text_lines.append(
+                f"✨ <b>{m.name}</b> — <i>{m.title}</i>\n"
+                f"ℹ️ {m.bio or 'Професійний майстер манікюру'}\n"
+                f"📅 <b>Графік:</b> {schedule_info}\n"
+            )
+
+    text = "\n".join(text_lines)
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_client_back_kb())
     await callback.answer()
 
 
-@client_router.callback_query(F.data == "client_about")
-async def client_about_callback(callback: CallbackQuery) -> None:
-    """Handle about salon button."""
+@client_router.callback_query(F.data == "client_booking_soon")
+async def client_booking_soon_callback(callback: CallbackQuery) -> None:
+    """Inform about upcoming Mini App online booking."""
     text = (
-        "ℹ️ <b>Про наш салон:</b>\n\n"
-        "💎 <b>Професіоналізм:</b> Досвідчені топ-майстри зі стажем понад 5 років.\n"
-        "🛡 <b>Безпека:</b> 3-етапна стерилізація інструментів (сухожар, крафт-пакети, дезінфекція).\n"
-        "🌿 <b>Преміум матеріали:</b> Тільки сертифіковані та гіпоалергенні гель-лаки.\n"
-        "☕️ <b>Комфорт:</b> Смачна кава, чай, солодощі та улюблені фільми під час процедури."
+        f"📅 <b>Онлайн-запис до «{settings.SALON_NAME}»</b>\n\n"
+        "🚀 <i>Готується наступний реліз:</i>\n"
+        "Зовсім скоро прямо у цьому боті відкриється <b>Telegram Mini App</b>! "
+        "Ви зможете зручно обрати майстра, процедуру, переглянути інтерактивний календар "
+        "вільних віконець та забронювати візит за 30 секунд.\n\n"
+        f"👉 Наразі для запису напишіть нашому адміністратору: {settings.ADMIN_USERNAME}"
     )
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_client_back_kb())
@@ -67,14 +194,13 @@ async def client_about_callback(callback: CallbackQuery) -> None:
 
 @client_router.callback_query(F.data == "client_contacts")
 async def client_contacts_callback(callback: CallbackQuery) -> None:
-    """Handle contacts button."""
+    """Display contacts and location."""
     text = (
-        "📞 <b>Контакти та локація:</b>\n\n"
-        "📍 <b>Адреса:</b> м. Київ, вул. Центральна, 10 (м. Хрещатик)\n"
-        "🕒 <b>Графік роботи:</b> Щодня з 09:00 до 21:00\n"
-        "📱 <b>Телефон:</b> +380 (99) 123-45-67\n"
-        "💬 <b>Telegram:</b> @andriy_bot_dev\n"
-        "📸 <b>Instagram:</b> @nails_salon_kyiv"
+        f"📍 <b>Контакти студії «{settings.SALON_NAME}»:</b>\n\n"
+        "🏢 <b>Адреса:</b> м. Івано-Франківськ, центр міста, вул. Січових Стрільців\n"
+        "🕒 <b>Графік роботи:</b> Щодня з 09:00 до 20:00\n"
+        f"💬 <b>Адміністратор для запису:</b> {settings.ADMIN_USERNAME}\n"
+        "🛡 <b>Безпека:</b> 100% стерильність за медичними нормами (сухожар, сертифіковані крафт-пакети)"
     )
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_client_back_kb())

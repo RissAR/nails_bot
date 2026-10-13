@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from src.config import settings
-from src.database.session import init_db
+from src.database import init_db
 from src.handlers import admin_router, client_router, common_router
 from src.middlewares import AuthMiddleware
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 async def main() -> None:
     """Main bot entry point."""
-    logger.info("Initializing database...")
+    logger.info("Initializing database for %s...", settings.SALON_NAME)
     await init_db()
     logger.info("Database initialized successfully.")
 
@@ -41,6 +41,7 @@ async def main() -> None:
     dp.include_router(common_router)
 
     logger.info("Bot starting in polling mode...")
+    logger.info("Studio: %s", settings.SALON_NAME)
     logger.info("Configured admins: %s", settings.ADMIN_IDS)
 
     try:

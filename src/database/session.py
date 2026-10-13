@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from src.config import settings
-from src.database.models.base import Base
 
 engine = create_async_engine(
     settings.DATABASE_URL,
@@ -22,15 +21,6 @@ async_session_maker = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
 )
-
-
-async def init_db() -> None:
-    """Initialize database tables."""
-    # Ensure models are imported before creating tables
-    import src.database.models  # noqa: F401
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
 
 @asynccontextmanager
