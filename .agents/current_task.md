@@ -1,120 +1,146 @@
-# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 8 — Комплексне вирішення жорсткого кешування Telegram Mini App (Cache-Busting & Storage Management)
+# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 9 — Захист від подвійного бронювання (Race Condition Lock) та Автоматичні нагадування про візит
 
 ## 1. Загальна інформація та мета етапу
-- **Мета:** Повністю усунути проблему жорсткого кешування Telegram WebView, через яку клієнти можуть бачити застарілий інтерфейс або накопичувати десятки мегабайтів кешу. Впровадити трирівневу систему скидання та контролю кешування:
-  1. **HTTP Cache-Control заголовки на рівні FastAPI:** Сувора заборона кешування для `index.html` (`no-cache, no-store, must-revalidate`) та довготривале кешування для зхешованих Vite асетів (`/assets/*`).
-  2. **Cache-Busting параметр у боті:** Автоматичне додавання версійного параметра `?v={APP_VERSION}` до всіх URL-посилань запуску Mini App (інлайн-кнопки та Menu Button), що примушує Telegram WebView негайно скидати застарілий кеш при зміні версії.
-  3. **Клієнтський скрипт автоочищення кешу та пам'яті (Frontend):** Автоматичне видалення старих Service Worker/браузерних кешів (`caches.delete()`) та моніторинг розміру локального сховища при зміні версії додатку.
+- **Мета:**
+  1. **Race Condition Lock (Захист від подвійного бронювання):** Гарантувати, що двоє клієнтів не зможуть одночасно забронювати один і той самий таймслот у одного майстра. Якщо виникає конфлікт у мілісекундні інтервали — повертати HTTP 409 Conflict зі зрозумілим повідомленням та оновленням слотів у Mini App.
+  2. **Автономний фоновий сервіс нагадувань (Background Reminder Worker):**
+     - **Нагадування за 24 години до візиту:** надсилається клієнту в Telegram за день до запланованого часу.
+     - **Нагадування за 2 години до візиту:** надсилається клієнту в день візиту за 2 години до початку.
+     - **Автонагадування адміну про підвислі заявки:** якщо нова заявка висить у статусі `pending` понад 30 хвилин без підтвердження чи відхилення — надсилати адміну м'який пуш.
 - **GitHub Repository:** `https://github.com/RissAR/nails_bot.git` (гілка `main`)
-- **Стек:** FastAPI, Python (aiogram 3.x), React, Vite, TypeScript.
+- **Стек:** Python (asyncio, SQLAlchemy 2.0 Async, zoneinfo), FastAPI, React, Telegram Bot API (aiogram 3.x).
 
 ---
 
-## 2. Суворі правила виконання (Strict Scope Discipline)
+## 2. Суворі правила безпеки (Strict Security & Scope Discipline)
 1. **Zero Hardcoded Secrets (КРИТИЧНО):** `BOT_TOKEN` та інші конфіденційні дані зчитуються **виключно з локального `.env`**. Заборонено записувати токени у файли коду.
-2. **Zero Scope Creep:** Модифікувати тільки роздачу статики у `src/api/app.py`, версійну конфігурацію в `src/config.py`, клавіатури бота та стартову ініціалізацію у `frontend/src/main.tsx`. Не чіпати бізнес-логіку або розрахунок цін/слотів.
+2. **Zero Scope Creep:** Модифікувати тільки роут створення бронювання (`src/api/routes/bookings.py`), модель `Appointment`, фоновий воркер нагадувань та обробку помилки 409 у `BookingModal.tsx`. Не ламати існуючий розклад чи дизайн.
 3. **Git Автоматизація:** Після завершення роботи та перевірки виконати:
-   `git add . && git commit -m "feat: implement 3-tier Telegram Mini App cache-busting and storage cleanup" && git push origin main`.
+   `git add . && git commit -m "feat: implement race condition booking lock and background appointment reminders" && git push origin main`.
 
 ---
 
 ## 3. Деталі технічної реалізації
 
-### 3.1. Рівень 1: Серверні HTTP-заголовки у FastAPI (`src/api/app.py`)
-Зараз `app.mount("/app", StaticFiles(directory=dist_path, html=True))` віддає `index.html` без суворих заголовків кешування, через що Telegram WebView кешує його на невизначений термін.
+### 3.1. Захист від подвійного бронювання (Race Condition Lock)
 
-**Необхідні зміни у `src/api/app.py`:**
-1. Для роздачі `index.html` (маршрути `/app`, `/app/` та будь-які fallback роути):
-   - Повертати `FileResponse` з обов'язковими HTTP-заголовками проти кешування:
+#### Backend (`src/api/routes/bookings.py`):
+1. **Транзакційна перевірка перетину інтервалів:**
+   - Перед створенням запису `Appointment` виконати сувору перевірку наявності існуючих бронювань зі статусом `pending` або `confirmed` для того самого `master_id` та `booking_date`:
      ```python
-     headers = {
-         "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-         "Pragma": "no-cache",
-         "Expires": "0",
-     }
+     conflict_stmt = (
+         select(Appointment)
+         .where(
+             Appointment.master_id == payload.master_id,
+             Appointment.booking_date == b_date,
+             Appointment.status.in_(["pending", "confirmed"]),
+             Appointment.start_time < e_time,
+             Appointment.end_time > s_time,
+         )
+     )
      ```
-2. Для папки зхешованих асетів (`dist/assets` з файлами `index-[hash].js`, `index-[hash].css`):
-   - Монтувати окремо під маршрут `/app/assets`:
-     - Оскільки Vite додає унікальний хеш у назву кожного бандла, ці файли безпечно кешувати:
-       `Cache-Control: public, max-age=31536000, immutable`.
-3. Створити кастомний `StaticFiles` або middleware, який автоматично встановлює ці заголовки залежно від типу файлу (`text/html` ➔ `no-store`, `application/javascript` / `text/css` ➔ `immutable`).
+2. **In-Process Lock:**
+   - Для запобігання паралельним конкурентним корутинам у FastAPI обгорнути створення запису в `asyncio.Lock()` (глобальний або по ключу `f"{payload.master_id}_{b_date}"`).
+3. **Обробка колізії:**
+   - Якщо знайдено перетин інтервалів:
+     `raise HTTPException(status_code=409, detail="Цей часовий слот щойно забронював інший клієнт. Будь ласка, оберіть інший вільний час.")`.
+
+#### Frontend (`frontend/src/components/BookingModal.tsx`):
+- Перехоплювати помилку HTTP 409 під час виклику `api.createBooking()`:
+  - Відображати зрозуміле повідомлення користувачу:
+    *"⚠️ На жаль, цей час щойно зайняли. Будь ласка, оберіть інший вільний слот."*
+  - Викликати зворотний колбек оновлення доступних слотів (`onRefreshSlots()`), щоб зайнятий слот миттєво зник з вибору.
 
 ---
 
-### 3.2. Рівень 2: Cache-Busting параметр у боті (`src/config.py`, `keyboards`, `main.py`)
-
-1. **Конфігурація версії (`src/config.py`):**
-   - Додати поле `APP_VERSION: str = "1.0.1"` (зчитується з `.env` з можливістю швидкого перевизначення).
-   - Створити хелпер-метод у `Settings`:
-     ```python
-     def get_webapp_url(self, extra_params: dict[str, str] | None = None) -> str:
-         """Generate WebApp URL with cache-busting version parameter."""
-         params = {"v": self.APP_VERSION}
-         if extra_params:
-             params.update(extra_params)
-         query = "&".join(f"{k}={v}" for k, v in params.items())
-         base = self.WEBAPP_URL.rstrip("/")
-         sep = "&" if "?" in base else "?"
-         return f"{base}{sep}{query}"
-     ```
-
-2. **Оновлення всіх викликів `WebAppInfo` у боті:**
-   - У `src/keyboards/client_kb.py`:
-     - Головне меню: `web_app=WebAppInfo(url=settings.get_webapp_url())`.
-     - Запис на конкретну послугу: `web_app=WebAppInfo(url=settings.get_webapp_url({"service_id": str(service_id)}))`.
-   - У `src/keyboards/admin_kb.py`:
-     - Адмін-кнопка: `web_app=WebAppInfo(url=settings.get_webapp_url({"role": "admin"}))`.
-   - У `src/main.py`:
-     - `bot.set_chat_menu_button`:
-       `menu_button=MenuButtonWebApp(text="💅 Запис", web_app=WebAppInfo(url=settings.get_webapp_url()))`.
-
-*Результат:* Коли версія в `.env` змінюється на нову (наприклад, `1.0.2`), Telegram WebView сприймає URL як новий і гарантовано завантажує свіжий `index.html`.
+### 3.2. Розширення моделі `Appointment` (`src/database/models/appointment.py`)
+Додати прапорці відправки сповіщень для уникнення дублювання:
+```python
+reminded_24h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+reminded_2h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+admin_alerted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+```
+*(У `src/database/init_db.py` забезпечити додавання цих стовпців, якщо вони відсутні в існуючій базі даних через `ALTER TABLE` або перевірку).*
 
 ---
 
-### 3.3. Рівень 3: Клієнтське автоочищення кешу та пам'яті (`frontend/src/main.tsx`)
+### 3.3. Сервіс автоматичних нагадувань (`src/services/reminder_service.py`)
 
-У точці входу клієнтського додатку (`frontend/src/main.tsx`) перед рендером React додати легкий механізм очищення:
+Створити асинхронний фоновий воркер, що працює паралельно з ботом та API:
+```python
+async def run_reminder_worker(bot: Bot) -> None:
+    """Background worker running every 60 seconds to process appointment reminders."""
+```
 
-1. **Очищення при зміні версії:**
-   - Отримати версію з URL (параметр `?v=...`) або із зашитого `package.json` / Vite env.
-   - Перевірити `localStorage.getItem('sense_app_version')`.
-   - Якщо версія відрізняється:
-     ```javascript
-     // 1. Очищення браузерного Cache Storage
-     if ('caches' in window) {
-       caches.keys().then((names) => {
-         names.forEach((name) => caches.delete(name));
-       });
-     }
-     // 2. Очищення застарілих тимчасових даних
-     const keysToRemove = [];
-     for (let i = 0; i < localStorage.length; i++) {
-       const key = localStorage.key(i);
-       if (key && !key.startsWith('sense_essential_')) {
-         keysToRemove.push(key);
-       }
-     }
-     keysToRemove.forEach((k) => localStorage.removeItem(k));
-     localStorage.setItem('sense_app_version', currentVersion);
+#### Логіка перевірки за Київським часом (`Europe/Kyiv`):
+1. **Нагадування за 24 години (Next-Day Reminder):**
+   - Шукає `Appointment` зі статусом `"confirmed"` та `reminded_24h == False`.
+   - Умова: `booking_date == tomorrow` (за часовим поясом Києва).
+   - Надсилає клієнту в Telegram:
+     ```html
+     ✨ <b>Нагадування про завтрашній запис у Sense Nail Studio!</b>
+
+     Олено, чекаємо на вас завтра (<b>{booking_date}</b>) о <b>{start_time}</b>:
+     💅 <b>Послуга:</b> {service_name}
+     👩‍🎨 <b>Майстер:</b> {master_name}
+     📍 <b>Адреса:</b> м. Івано-Франківськ, вул. Січових Стрільців
+
+     Якщо ваші плани змінилися, будь ласка, повідомте адміністратора: @andriy_bot_dev
      ```
+   - Встановлює `reminded_24h = True` та зберігає в БД.
 
-2. **Захист від переповнення пам'яті (Ліміт сховища):**
-   - Перевіряти сумарний розмір `localStorage`: якщо обсяг перевищує безпечний ліміт (~10–20 МБ через накопичені логи), скидати застарілі тимчасові дані.
+2. **Нагадування за 2 години (Same-Day Reminder):**
+   - Шукає `Appointment` зі статусом `"confirmed"` та `reminded_2h == False`.
+   - Умова: `booking_date == today` і поточний час знаходиться в діапазоні від 1.5 до 2.5 годин до `start_time`.
+   - Надсилає клієнту в Telegram:
+     ```html
+     ⏳ <b>Чекаємо на вас сьогодні о {start_time}!</b>
+
+     Студія естетичного манікюру «Sense Nail Studio».
+     💅 {service_name} • Майстер: {master_name}
+     📍 вул. Січових Стрільців
+
+     Кава, чай та бездоганний манікюр уже чекають на вас ☕️✨
+     ```
+   - Встановлює `reminded_2h = True` та зберігає в БД.
+
+3. **Автонагадування адміну про підвислі заявки (Pending Alert):**
+   - Шукає `Appointment` зі статусом `"pending"` та `admin_alerted == False`.
+   - Умова: запис створено понад 30 хвилин тому (`created_at <= now - 30 minutes`).
+   - Надсилає адмінам (`settings.ADMIN_IDS`):
+     ```html
+     ⚠️ <b>Нагадування: Заявка #{id} все ще очікує рішення!</b>
+     👤 Клієнт: {client_name} ({client_phone})
+     💅 Послуга: {service_name} о {start_time} ({booking_date})
+     Будь ласка, підтвердіть або відхиліть запис.
+     ```
+   - Встановлює `admin_alerted = True` та зберігає в БД.
+
+---
+
+### 3.4. Інтеграція в `src/main.py`
+У головній асинхронній точці входу `main()`:
+```python
+await asyncio.gather(
+    run_api(),
+    run_bot(bot, dp),
+    run_reminder_worker(bot),
+)
+```
 
 ---
 
 ## 4. Критерії приймання та валідація (Acceptance Criteria)
-1. При запиті `curl -I http://localhost:8000/app/` у відповіді присутні заголовки:
-   `Cache-Control: no-cache, no-store, must-revalidate, max-age=0` (або аналогічні суворі `no-store`).
-2. Для асетів `curl -I http://localhost:8000/app/assets/index-....js` повертаються оптимізовані заголовки кешування.
-3. Усі кнопки бота (`client_kb`, `admin_kb`, `MenuButtonWebApp`) формують URL із версійним суфіксом `?v=...`.
-4. При відкритті Mini App клієнтський скрипт очищає застарілі кеші у `caches` та оновлює `sense_app_version`.
-5. `npm run build` у `frontend/` збирається без помилок (код 0).
-6. Усі секрети завантажуються виключно з `.env`.
-7. Зміни закомічені та відправлені на GitHub:
+1. При спробі одночасного створення запису на пересічний час другий запит повертає HTTP 409 Conflict.
+2. У Mini App користувач отримує попередження про зайнятий час та актуалізацію списку слотів.
+3. У таблиці `appointments` додано поля `reminded_24h`, `reminded_2h`, `admin_alerted`.
+4. Сервіс `run_reminder_worker` стартує в одному процесі, не блокує polling бота та API.
+5. Повідомлення нагадувань надсилаються за часовим поясом `Europe/Kyiv` коректно і без дублювання.
+6. `npm run build` у `frontend/` збирається без помилок (код 0).
+7. Усі секрети залишаються строго в `.env`.
+8. Зміни закомічені та відправлені на GitHub:
    ```bash
    git add .
-   git commit -m "feat: implement 3-tier Telegram Mini App cache-busting and storage cleanup"
+   git commit -m "feat: implement race condition booking lock and background appointment reminders"
    git push origin main
    ```
