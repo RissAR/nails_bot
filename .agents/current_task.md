@@ -1,114 +1,120 @@
-# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 7 — Імплементація дизайну «Варіант 1: Deep Sand & Caramel» у Telegram Mini App (Клієнт та Адмін)
+# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 8 — Комплексне вирішення жорсткого кешування Telegram Mini App (Cache-Busting & Storage Management)
 
 ## 1. Загальна інформація та мета етапу
-- **Мета:**
-  Оновити візуальну тему (кольорову гаму, глибину тіней та контраст) обох частин Telegram Mini App (клієнтської та адмінської) відповідно до затвердженого **Варіанту 1 (Deep Sand & Caramel)**. 
-  - Гама робиться на **5–7% темнішою та щільнішою** (прибираємо занадто світлий вибілений фон).
-  - Додається візуальна глибина: картки стають слоновою кісткою з теплими контурними рамками та м'якими кавовими тінями замість плоских сірих.
-  - **СТРУКТУРА ТА ЛОГІКА НЕ ЗМІНЮЮТЬСЯ:** Усі кнопки, функціонал, структура компонентів, ендпоінти залишаються без змін — оновлюється **виключно дизайн та палітра**.
+- **Мета:** Повністю усунути проблему жорсткого кешування Telegram WebView, через яку клієнти можуть бачити застарілий інтерфейс або накопичувати десятки мегабайтів кешу. Впровадити трирівневу систему скидання та контролю кешування:
+  1. **HTTP Cache-Control заголовки на рівні FastAPI:** Сувора заборона кешування для `index.html` (`no-cache, no-store, must-revalidate`) та довготривале кешування для зхешованих Vite асетів (`/assets/*`).
+  2. **Cache-Busting параметр у боті:** Автоматичне додавання версійного параметра `?v={APP_VERSION}` до всіх URL-посилань запуску Mini App (інлайн-кнопки та Menu Button), що примушує Telegram WebView негайно скидати застарілий кеш при зміні версії.
+  3. **Клієнтський скрипт автоочищення кешу та пам'яті (Frontend):** Автоматичне видалення старих Service Worker/браузерних кешів (`caches.delete()`) та моніторинг розміру локального сховища при зміні версії додатку.
 - **GitHub Repository:** `https://github.com/RissAR/nails_bot.git` (гілка `main`)
-- **Стек:** React, Tailwind CSS, TypeScript, Vite.
+- **Стек:** FastAPI, Python (aiogram 3.x), React, Vite, TypeScript.
 
 ---
 
 ## 2. Суворі правила виконання (Strict Scope Discipline)
-1. **Zero Scope Creep:** Модифікувати тільки конфігурацію кольорів і стилів (`frontend/tailwind.config.js`, `frontend/src/index.css` та стилі тіней/рамок у компонентах). Не чіпати бізнес-логіку, кнопки чи обробники подій.
-2. **Zero Hardcoded Secrets:** Усі токени суворо залишаються у `.env`.
-3. **Автоматичний білд та Git:** Після оновлення обов'язково виконати збірку `npm run build` у папці `frontend/` та зафіксувати зміни:
-   `git add . && git commit -m "feat(ui): implement Variant 1 Deep Sand & Caramel color palette and depth" && git push origin main`.
+1. **Zero Hardcoded Secrets (КРИТИЧНО):** `BOT_TOKEN` та інші конфіденційні дані зчитуються **виключно з локального `.env`**. Заборонено записувати токени у файли коду.
+2. **Zero Scope Creep:** Модифікувати тільки роздачу статики у `src/api/app.py`, версійну конфігурацію в `src/config.py`, клавіатури бота та стартову ініціалізацію у `frontend/src/main.tsx`. Не чіпати бізнес-логіку або розрахунок цін/слотів.
+3. **Git Автоматизація:** Після завершення роботи та перевірки виконати:
+   `git add . && git commit -m "feat: implement 3-tier Telegram Mini App cache-busting and storage cleanup" && git push origin main`.
 
 ---
 
-## 3. Специфікація палітри «Варіант 1: Deep Sand & Caramel»
+## 3. Деталі технічної реалізації
 
-### 3.1. Кольорова матриця (Tailwind & CSS):
-- **Основний фон (Background):** `#F4ECE4` *(Теплий пісочний льон — на 6–7% темніший за старий #FDFBF7, без ядучого білого світла)*.
-- **Поверхні та картки (Surface):** `#FAF7F2` *(М'яка слонова кістка замість чистого #FFFFFF)*.
-- **Головний акцент / Кнопки (Primary):** `#C28751` *(Багата тепла карамельна бронза)*.
-- **Hover стан кнопок (Primary Hover):** `#B37842` *(Глибша карамель при наведенні/натисканні)*.
-- **Вторинний акцент / Бейджі (Accent / Badges):** `#EBD9C8` *(Теплий лате для виділення слотів, активних табів та бейджів)*.
-- **Контурні рамки (Border):** `#E4D8CC` *(Теплий контур, що дає чітке відділення карток від пісочного фону)*.
-- **Основний текст (Text Main):** `#231E1B` *(Глибокий темно-кавовий графіт для ідеального контрасту)*.
-- **Допоміжний текст (Text Muted):** `#6E6157` *(Тепле мокко для тайм-міток, тривалості та другорядних деталей)*.
-- **Зелений статус (Success/Sterile):** `#3E6B48` та `#E2EBE4`.
+### 3.1. Рівень 1: Серверні HTTP-заголовки у FastAPI (`src/api/app.py`)
+Зараз `app.mount("/app", StaticFiles(directory=dist_path, html=True))` віддає `index.html` без суворих заголовків кешування, через що Telegram WebView кешує його на невизначений термін.
 
-### 3.2. М'які теплі тіні (Elevation & Depth):
-Додати в `tailwind.config.js` кастомні тіні з теплим кавовим відтінком замість холодних сірих:
-```javascript
-boxShadow: {
-  'card': '0 4px 16px rgba(60, 40, 25, 0.06)',
-  'card-active': '0 8px 24px rgba(60, 40, 25, 0.10)',
-  'dock': '0 -4px 20px rgba(60, 40, 25, 0.08)',
-}
-```
+**Необхідні зміни у `src/api/app.py`:**
+1. Для роздачі `index.html` (маршрути `/app`, `/app/` та будь-які fallback роути):
+   - Повертати `FileResponse` з обов'язковими HTTP-заголовками проти кешування:
+     ```python
+     headers = {
+         "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+         "Pragma": "no-cache",
+         "Expires": "0",
+     }
+     ```
+2. Для папки зхешованих асетів (`dist/assets` з файлами `index-[hash].js`, `index-[hash].css`):
+   - Монтувати окремо під маршрут `/app/assets`:
+     - Оскільки Vite додає унікальний хеш у назву кожного бандла, ці файли безпечно кешувати:
+       `Cache-Control: public, max-age=31536000, immutable`.
+3. Створити кастомний `StaticFiles` або middleware, який автоматично встановлює ці заголовки залежно від типу файлу (`text/html` ➔ `no-store`, `application/javascript` / `text/css` ➔ `immutable`).
 
 ---
 
-## 4. Конкретні файли для оновлення
+### 3.2. Рівень 2: Cache-Busting параметр у боті (`src/config.py`, `keyboards`, `main.py`)
 
-### 4.1. `frontend/tailwind.config.js`:
-Оновити секцію `theme.extend`:
-```javascript
-colors: {
-  nude: {
-    bg: '#F4ECE4',           // Теплий пісочний льон (5-7% темніший)
-    surface: '#FAF7F2',      // М'яка слонова кістка
-    primary: '#C28751',      // Карамельна бронза
-    primaryHover: '#B37842', // Насичена карамель
-    accent: '#EBD9C8',       // Теплий лате / активні чіпси
-    secondary: '#E8DDD3',    // Нейтральний лате
-    border: '#E4D8CC',       // Теплий контурний бордер
-    text: '#231E1B',         // Глибокий еспресо-графіт
-    muted: '#6E6157',        // Тепле мокко
-    green: '#3E6B48',
-    greenLight: '#E2EBE4',
-  }
-},
-boxShadow: {
-  'card': '0 4px 16px rgba(60, 40, 25, 0.06)',
-  'card-active': '0 8px 24px rgba(60, 40, 25, 0.10)',
-  'dock': '0 -4px 20px rgba(60, 40, 25, 0.08)',
-}
-```
+1. **Конфігурація версії (`src/config.py`):**
+   - Додати поле `APP_VERSION: str = "1.0.1"` (зчитується з `.env` з можливістю швидкого перевизначення).
+   - Створити хелпер-метод у `Settings`:
+     ```python
+     def get_webapp_url(self, extra_params: dict[str, str] | None = None) -> str:
+         """Generate WebApp URL with cache-busting version parameter."""
+         params = {"v": self.APP_VERSION}
+         if extra_params:
+             params.update(extra_params)
+         query = "&".join(f"{k}={v}" for k, v in params.items())
+         base = self.WEBAPP_URL.rstrip("/")
+         sep = "&" if "?" in base else "?"
+         return f"{base}{sep}{query}"
+     ```
 
-### 4.2. `frontend/src/index.css`:
-- Оновити глобальний фон та текст `body`:
-  ```css
-  body {
-    margin: 0;
-    padding: 0;
-    background-color: #F4ECE4;
-    color: #231E1B;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
+2. **Оновлення всіх викликів `WebAppInfo` у боті:**
+   - У `src/keyboards/client_kb.py`:
+     - Головне меню: `web_app=WebAppInfo(url=settings.get_webapp_url())`.
+     - Запис на конкретну послугу: `web_app=WebAppInfo(url=settings.get_webapp_url({"service_id": str(service_id)}))`.
+   - У `src/keyboards/admin_kb.py`:
+     - Адмін-кнопка: `web_app=WebAppInfo(url=settings.get_webapp_url({"role": "admin"}))`.
+   - У `src/main.py`:
+     - `bot.set_chat_menu_button`:
+       `menu_button=MenuButtonWebApp(text="💅 Запис", web_app=WebAppInfo(url=settings.get_webapp_url()))`.
 
-  ::-webkit-scrollbar-thumb {
-    background: #E4D8CC;
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #C28751;
-  }
-  ```
-
-### 4.3. Візуальна глибина в компонентах:
-- У картках послуг (`ServiceList.tsx`), майстрів (`MasterList.tsx`), календаря (`SlotPicker.tsx`), модалки (`BookingModal.tsx`) та блоках адмін-панелі (`AdminDashboard.tsx`):
-  - Переконатися, що використовується клас тіні `shadow-card` або `shadow-sm` на фоні `bg-nude-surface` та `border border-nude-border`.
-  - Нижня закріплена плашка (Sticky Booking Bar) використовує фон `bg-[#F4ECE4]/95 backdrop-blur-md border-t border-nude-border shadow-dock`.
+*Результат:* Коли версія в `.env` змінюється на нову (наприклад, `1.0.2`), Telegram WebView сприймає URL як новий і гарантовано завантажує свіжий `index.html`.
 
 ---
 
-## 5. Критерії приймання та валідація (Acceptance Criteria)
-1. Фон обох Mini App (клієнтської та адмінської) став приємним, теплим пісочно-лляним (`#F4ECE4`), не сліпить очі.
-2. Картки чітко виділяються завдяки кольору слонової кістки (`#FAF7F2`), теплому бордеру та м'яким кавовим тіням, додаючи глибини інтерфейсу.
-3. Кнопки та активні слоти мають благородний карамельний відтінок (`#C28751`).
-4. Жодна кнопка, обробник чи елемент функціоналу не зламані.
-5. `npm run build` у папці `frontend/` збирається з кодом 0, файли у `dist` оновлені.
-6. Зміни закомічені та відправлені на GitHub:
+### 3.3. Рівень 3: Клієнтське автоочищення кешу та пам'яті (`frontend/src/main.tsx`)
+
+У точці входу клієнтського додатку (`frontend/src/main.tsx`) перед рендером React додати легкий механізм очищення:
+
+1. **Очищення при зміні версії:**
+   - Отримати версію з URL (параметр `?v=...`) або із зашитого `package.json` / Vite env.
+   - Перевірити `localStorage.getItem('sense_app_version')`.
+   - Якщо версія відрізняється:
+     ```javascript
+     // 1. Очищення браузерного Cache Storage
+     if ('caches' in window) {
+       caches.keys().then((names) => {
+         names.forEach((name) => caches.delete(name));
+       });
+     }
+     // 2. Очищення застарілих тимчасових даних
+     const keysToRemove = [];
+     for (let i = 0; i < localStorage.length; i++) {
+       const key = localStorage.key(i);
+       if (key && !key.startsWith('sense_essential_')) {
+         keysToRemove.push(key);
+       }
+     }
+     keysToRemove.forEach((k) => localStorage.removeItem(k));
+     localStorage.setItem('sense_app_version', currentVersion);
+     ```
+
+2. **Захист від переповнення пам'яті (Ліміт сховища):**
+   - Перевіряти сумарний розмір `localStorage`: якщо обсяг перевищує безпечний ліміт (~10–20 МБ через накопичені логи), скидати застарілі тимчасові дані.
+
+---
+
+## 4. Критерії приймання та валідація (Acceptance Criteria)
+1. При запиті `curl -I http://localhost:8000/app/` у відповіді присутні заголовки:
+   `Cache-Control: no-cache, no-store, must-revalidate, max-age=0` (або аналогічні суворі `no-store`).
+2. Для асетів `curl -I http://localhost:8000/app/assets/index-....js` повертаються оптимізовані заголовки кешування.
+3. Усі кнопки бота (`client_kb`, `admin_kb`, `MenuButtonWebApp`) формують URL із версійним суфіксом `?v=...`.
+4. При відкритті Mini App клієнтський скрипт очищає застарілі кеші у `caches` та оновлює `sense_app_version`.
+5. `npm run build` у `frontend/` збирається без помилок (код 0).
+6. Усі секрети завантажуються виключно з `.env`.
+7. Зміни закомічені та відправлені на GitHub:
    ```bash
    git add .
-   git commit -m "feat(ui): implement Variant 1 Deep Sand & Caramel color palette and depth"
+   git commit -m "feat: implement 3-tier Telegram Mini App cache-busting and storage cleanup"
    git push origin main
    ```
