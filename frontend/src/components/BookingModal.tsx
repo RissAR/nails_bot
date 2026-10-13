@@ -19,6 +19,7 @@ interface BookingModalProps {
   isSubmitting: boolean;
   bookingSuccess: boolean;
   onSuccessDone: () => void;
+  onRefreshSlots?: () => void;
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -34,6 +35,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   isSubmitting,
   bookingSuccess,
   onSuccessDone,
+  onRefreshSlots,
 }) => {
   const [name, setName] = useState('');
   const [phoneSuffix, setPhoneSuffix] = useState('');
@@ -110,7 +112,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     try {
       await onSubmit({ name: name.trim(), phone: fullPhone, notes: notes.trim() });
     } catch (err: any) {
-      setError(err.message || 'Помилка при створенні бронювання');
+      if (
+        err.status === 409 ||
+        err.message?.includes('щойно') ||
+        err.message?.includes('зайняли') ||
+        err.message?.includes('зайнят')
+      ) {
+        setError('⚠️ На жаль, цей час щойно зайняли. Будь ласка, оберіть інший вільний слот.');
+        onRefreshSlots?.();
+      } else {
+        setError(err.message || 'Помилка при створенні бронювання');
+      }
     }
   };
 

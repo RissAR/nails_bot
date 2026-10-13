@@ -49,7 +49,9 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Помилка створення бронювання');
+      const error: any = new Error(err.detail || 'Помилка створення бронювання');
+      error.status = res.status;
+      throw error;
     }
     return res.json();
   },

@@ -1,6 +1,6 @@
 from datetime import date, time
 from typing import TYPE_CHECKING
-from sqlalchemy import Date, ForeignKey, Integer, String, Text, Time
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database.models.base import Base, TimestampMixin
@@ -28,6 +28,9 @@ class Appointment(Base, TimestampMixin):
         nullable=False,
     )
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reminded_24h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    reminded_2h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    admin_alerted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
 
     client: Mapped["User"] = relationship("User", back_populates="appointments")
     master: Mapped["Master"] = relationship("Master", back_populates="appointments")

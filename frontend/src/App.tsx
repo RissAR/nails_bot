@@ -177,6 +177,28 @@ export const App: React.FC = () => {
     api.getAdminStats().then(setAdminStats).catch(() => {});
   };
 
+  // Callback to refresh available slots
+  const refreshSlots = useCallback(async () => {
+    if (!selectedMaster || !selectedService || !selectedDate) {
+      setSlots([]);
+      return;
+    }
+    setIsLoadingSlots(true);
+    try {
+      const availableSlots = await api.getSlots(
+        selectedMaster.id,
+        selectedDate,
+        selectedService.id
+      );
+      setSlots(availableSlots);
+      setSelectedSlot((prev) => (prev && availableSlots.includes(prev) ? prev : null));
+    } catch (err) {
+      console.error('Error refreshing slots', err);
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  }, [selectedMaster, selectedService, selectedDate]);
+
   // Handle service selection and compatibility
   const handleSelectService = (service: Service) => {
     setSelectedService(service);
@@ -388,6 +410,7 @@ export const App: React.FC = () => {
           isSubmitting={isSubmitting}
           bookingSuccess={bookingSuccess}
           onSuccessDone={handleBookingDone}
+          onRefreshSlots={refreshSlots}
         />
       )}
     </div>

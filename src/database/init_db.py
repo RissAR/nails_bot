@@ -265,5 +265,17 @@ async def init_db() -> None:
             except Exception:
                 pass
 
+        for col_def in [
+            "reminded_24h INTEGER DEFAULT 0 NOT NULL",
+            "reminded_2h INTEGER DEFAULT 0 NOT NULL",
+            "admin_alerted INTEGER DEFAULT 0 NOT NULL",
+        ]:
+            col_name = col_def.split()[0]
+            try:
+                await conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col_def}"))
+                logger.info("Migrated appointments table: added column %s", col_name)
+            except Exception:
+                pass
+
     await seed_initial_data()
     await sync_services_and_prices()

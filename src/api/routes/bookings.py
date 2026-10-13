@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date, datetime, time, timedelta
 import html
 import re
@@ -11,6 +12,8 @@ from src.database.models import Appointment, Master, Service, User
 from src.database.session import async_session_maker
 
 router = APIRouter(tags=["Bookings"])
+
+booking_lock = asyncio.Lock()
 
 PHONE_REGEX = re.compile(r"^\+380\d{9}$")
 NAME_REGEX = re.compile(r"^[А-Яа-яІіЇїЄєҐґ'\s\-]{2,40}$")
@@ -96,60 +99,79 @@ async def create_booking(payload: BookingCreateRequest) -> BookingResponse:
     safe_notes = html.escape(payload.notes.strip()) if payload.notes else None
     safe_phone = payload.client_phone.strip()
 
-    async with async_session_maker() as session:
-        # 1. Fetch service
-        svc = await session.get(Service, payload.service_id)
-        if not svc:
-            raise HTTPException(status_code=404, detail="Послугу не знайдено")
+    async with booking_lock:
+        async with async_session_maker() as session:
+            # 1. Fetch service
+            svc = await session.get(Service, payload.service_id)
+            if not svc:
+                raise HTTPException(status_code=404, detail="Послугу не знайдено")
 
-        # 2. Fetch master
-        master = await session.get(Master, payload.master_id)
-        if not master:
-            raise HTTPException(status_code=404, detail="Майстра не знайдено")
+            # 2. Fetch master
+            master = await session.get(Master, payload.master_id)
+            if not master:
+                raise HTTPException(status_code=404, detail="Майстра не знайдено")
 
-        # Calculate end_time
-        start_dt = datetime.combine(b_date, s_time)
-        end_dt = start_dt + timedelta(minutes=svc.duration_minutes)
-        e_time = end_dt.time()
+            # Calculate end_time
+            start_dt = datetime.combine(b_date, s_time)
+            end_dt = start_dt + timedelta(minutes=svc.duration_minutes)
+            e_time = end_dt.time()
 
-        # 3. Handle User
-        tg_id = payload.telegram_id
-        if tg_id is None:
-            import random
-            tg_id = -random.randint(1000000, 9999999)
-
-        u_stmt = select(User).where(User.telegram_id == tg_id)
-        u_res = await session.execute(u_stmt)
-        user = u_res.scalar_one_or_none()
-
-        if not user:
-            user = User(
-                telegram_id=tg_id,
-                full_name=safe_name,
-                phone=safe_phone,
-                role="client",
+            # Race condition overlap check
+            conflict_stmt = (
+                select(Appointment)
+                .where(
+                    Appointment.master_id == payload.master_id,
+                    Appointment.booking_date == b_date,
+                    Appointment.status.in_(["pending", "confirmed"]),
+                    Appointment.start_time < e_time,
+                    Appointment.end_time > s_time,
+                )
             )
-            session.add(user)
-            await session.flush()
-        else:
-            user.full_name = safe_name
-            user.phone = safe_phone
-            await session.flush()
+            conflict_res = await session.execute(conflict_stmt)
+            if conflict_res.scalars().first():
+                raise HTTPException(
+                    status_code=409,
+                    detail="Цей часовий слот щойно забронював інший клієнт. Будь ласка, оберіть інший вільний час.",
+                )
 
-        # 4. Create Appointment
-        appointment = Appointment(
-            client_id=user.id,
-            master_id=master.id,
-            service_id=svc.id,
-            booking_date=b_date,
-            start_time=s_time,
-            end_time=e_time,
-            status="pending",
-            cancellation_reason=safe_notes,
-        )
-        session.add(appointment)
-        await session.commit()
-        await session.refresh(appointment)
+            # 3. Handle User
+            tg_id = payload.telegram_id
+            if tg_id is None:
+                import random
+                tg_id = -random.randint(1000000, 9999999)
+
+            u_stmt = select(User).where(User.telegram_id == tg_id)
+            u_res = await session.execute(u_stmt)
+            user = u_res.scalar_one_or_none()
+
+            if not user:
+                user = User(
+                    telegram_id=tg_id,
+                    full_name=safe_name,
+                    phone=safe_phone,
+                    role="client",
+                )
+                session.add(user)
+                await session.flush()
+            else:
+                user.full_name = safe_name
+                user.phone = safe_phone
+                await session.flush()
+
+            # 4. Create Appointment
+            appointment = Appointment(
+                client_id=user.id,
+                master_id=master.id,
+                service_id=svc.id,
+                booking_date=b_date,
+                start_time=s_time,
+                end_time=e_time,
+                status="pending",
+                cancellation_reason=safe_notes,
+            )
+            session.add(appointment)
+            await session.commit()
+            await session.refresh(appointment)
 
         # 5. Hybrid Notification to Telegram Admins
         try:
