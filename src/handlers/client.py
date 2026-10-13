@@ -212,10 +212,10 @@ async def client_webapp_http_warning_callback(callback: CallbackQuery) -> None:
     """Inform user that Telegram WebApp requires HTTPS tunnel."""
     text = (
         "⚠️ <b>Telegram Mini App потребує HTTPS-з'єднання!</b>\n\n"
-        f"Поточна адреса у конфігурації: <code>{settings.WEBAPP_URL}</code>\n\n"
+        f"Поточна адреса у конфігурації: <code>{settings.get_webapp_url()}</code>\n\n"
         "📱 Telegram не дозволяє відкривати WebApp через незахищений протокол <code>http://</code>.\n\n"
         "👉 <b>Як відкрити додаток:</b>\n"
-        f"1. Відкрийте у браузері: {settings.WEBAPP_URL}\n"
+        f"1. Відкрийте у браузері: {settings.get_webapp_url()}\n"
         "2. Або запустіть тунель Cloudflare/ngrok і додайте отриманий HTTPS URL у <code>.env</code>."
     )
     if callback.message:

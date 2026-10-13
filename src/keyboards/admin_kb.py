@@ -9,7 +9,7 @@ def get_admin_main_kb() -> InlineKeyboardMarkup:
     if is_https:
         tma_btn = InlineKeyboardButton(
             text="📱 Відкрити адмін-панель TMA",
-            web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
+            web_app=WebAppInfo(url=settings.get_webapp_url({"role": "admin"})),
         )
     else:
         tma_btn = InlineKeyboardButton(
@@ -51,7 +51,7 @@ def get_admin_back_kb() -> InlineKeyboardMarkup:
     if is_https:
         tma_btn = InlineKeyboardButton(
             text="📱 Відкрити адмін-панель TMA",
-            web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
+            web_app=WebAppInfo(url=settings.get_webapp_url({"role": "admin"})),
         )
     else:
         tma_btn = InlineKeyboardButton(

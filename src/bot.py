@@ -132,7 +132,7 @@ async def notify_client_booking_status(
         if is_https:
             btn = InlineKeyboardButton(
                 text="💅 Обрати інший час (Mini App)",
-                web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                web_app=WebAppInfo(url=settings.get_webapp_url()),
             )
         else:
             btn = InlineKeyboardButton(

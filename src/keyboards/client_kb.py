@@ -11,7 +11,7 @@ def get_client_main_kb() -> InlineKeyboardMarkup:
     if is_https:
         tma_button = InlineKeyboardButton(
             text="💅 Записатися онлайн (Mini App)",
-            web_app=WebAppInfo(url=settings.WEBAPP_URL),
+            web_app=WebAppInfo(url=settings.get_webapp_url()),
         )
     else:
         tma_button = InlineKeyboardButton(
@@ -60,7 +60,7 @@ def get_categories_kb(categories: list[Category]) -> InlineKeyboardMarkup:
         buttons.append([
             InlineKeyboardButton(
                 text="💅 Відкрити Mini App",
-                web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                web_app=WebAppInfo(url=settings.get_webapp_url()),
             )
         ])
     else:
@@ -91,7 +91,7 @@ def get_category_services_kb(services: list[Service] | None = None) -> InlineKey
                 buttons.append([
                     InlineKeyboardButton(
                         text=f"✨ Запис: {s.name} ({s.price:.0f} грн)",
-                        web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?service_id={s.id}"),
+                        web_app=WebAppInfo(url=settings.get_webapp_url({"service_id": str(s.id)})),
                     )
                 ])
             else:
@@ -106,7 +106,7 @@ def get_category_services_kb(services: list[Service] | None = None) -> InlineKey
         buttons.append([
             InlineKeyboardButton(
                 text="💅 Записатися в Mini App",
-                web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                web_app=WebAppInfo(url=settings.get_webapp_url()),
             ),
         ])
     else:
@@ -138,7 +138,7 @@ def get_service_detail_kb(service_id: int, category_id: int | None = None) -> In
     if is_https:
         book_btn = InlineKeyboardButton(
             text="✨ Записатися на цю послугу",
-            web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?service_id={service_id}"),
+            web_app=WebAppInfo(url=settings.get_webapp_url({"service_id": str(service_id)})),
         )
     else:
         book_btn = InlineKeyboardButton(
@@ -170,7 +170,7 @@ def get_client_back_kb() -> InlineKeyboardMarkup:
     if is_https:
         tma_btn = InlineKeyboardButton(
             text="💅 Записатися в Mini App",
-            web_app=WebAppInfo(url=settings.WEBAPP_URL),
+            web_app=WebAppInfo(url=settings.get_webapp_url()),
         )
     else:
         tma_btn = InlineKeyboardButton(

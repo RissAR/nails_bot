@@ -13,6 +13,17 @@ class Settings(BaseSettings):
     WEBAPP_URL: str = "http://localhost:8000/app"
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
+    APP_VERSION: str = "1.0.1"
+
+    def get_webapp_url(self, extra_params: dict[str, str] | None = None) -> str:
+        """Generate WebApp URL with cache-busting version parameter."""
+        params = {"v": self.APP_VERSION}
+        if extra_params:
+            params.update(extra_params)
+        query = "&".join(f"{k}={v}" for k, v in params.items())
+        base = self.WEBAPP_URL.rstrip("/")
+        sep = "&" if "?" in base else "?"
+        return f"{base}{sep}{query}"
 
     model_config = SettingsConfigDict(
         env_file=".env",

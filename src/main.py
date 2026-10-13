@@ -31,13 +31,14 @@ async def run_bot(bot: Bot, dp: Dispatcher) -> None:
     # Set native chat menu button to WebApp if HTTPS URL is configured
     if settings.WEBAPP_URL.startswith("https://"):
         try:
+            webapp_url = settings.get_webapp_url()
             await bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(
                     text="💅 Запис",
-                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                    web_app=WebAppInfo(url=webapp_url),
                 )
             )
-            logger.info("Chat menu button set to WebApp: %s", settings.WEBAPP_URL)
+            logger.info("Chat menu button set to WebApp: %s", webapp_url)
         except Exception as e:
             logger.warning("Failed to set chat menu button: %s", e)
     else:
