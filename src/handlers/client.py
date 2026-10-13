@@ -130,7 +130,7 @@ async def client_category_details_callback(
 
     text = "\n".join(text_lines)
     if callback.message:
-        await callback.message.edit_text(text, reply_markup=get_category_services_kb())
+        await callback.message.edit_text(text, reply_markup=get_category_services_kb(services))
     await callback.answer()
 
 

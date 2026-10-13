@@ -6,6 +6,7 @@ import uvicorn
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import MenuButtonWebApp, WebAppInfo
 
 from src.api.app import app as fastapi_app
 from src.config import settings
@@ -22,11 +23,30 @@ logger = logging.getLogger(__name__)
 
 
 async def run_bot(bot: Bot, dp: Dispatcher) -> None:
-    """Run aiogram bot polling."""
+    """Run aiogram bot polling and configure menu button."""
     logger.info("Bot starting in polling mode...")
     logger.info("Studio: %s", settings.SALON_NAME)
     logger.info("Configured admins: %s", settings.ADMIN_IDS)
     logger.info("Mini App URL: %s", settings.WEBAPP_URL)
+
+    # Set native chat menu button to WebApp if HTTPS URL is configured
+    if settings.WEBAPP_URL.startswith("https://"):
+        try:
+            await bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text="💅 Запис",
+                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                )
+            )
+            logger.info("Chat menu button set to WebApp: %s", settings.WEBAPP_URL)
+        except Exception as e:
+            logger.warning("Failed to set chat menu button: %s", e)
+    else:
+        logger.info(
+            "WEBAPP_URL is not HTTPS (%s). Telegram requires an HTTPS URL for the native chat menu button. "
+            "Configure an HTTPS tunnel (e.g. ngrok) in .env to activate the native menu button.",
+            settings.WEBAPP_URL,
+        )
 
     # Drop pending updates to avoid old messages on start
     await bot.delete_webhook(drop_pending_updates=True)

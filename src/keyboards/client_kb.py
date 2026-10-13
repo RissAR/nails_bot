@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from src.config import settings
 from src.database.models.category import Category
+from src.database.models.service import Service
 
 
 def get_client_main_kb() -> InlineKeyboardMarkup:
@@ -9,7 +10,7 @@ def get_client_main_kb() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="💅 Онлайн-запис (Mini App)",
+                    text="💅 Записатися онлайн (Mini App)",
                     web_app=WebAppInfo(url=settings.WEBAPP_URL),
                 ),
             ],
@@ -47,7 +48,7 @@ def get_categories_kb(categories: list[Category]) -> InlineKeyboardMarkup:
     buttons.append(
         [
             InlineKeyboardButton(
-                text="💅 Записатися в Mini App",
+                text="💅 Відкрити Mini App",
                 web_app=WebAppInfo(url=settings.WEBAPP_URL),
             )
         ]
@@ -63,23 +64,62 @@ def get_categories_kb(categories: list[Category]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_category_services_kb() -> InlineKeyboardMarkup:
-    """Return keyboard with navigation back to categories."""
+def get_category_services_kb(services: list[Service] | None = None) -> InlineKeyboardMarkup:
+    """Return keyboard with navigation and direct booking buttons for services."""
+    buttons: list[list[InlineKeyboardButton]] = []
+
+    if services:
+        for s in services:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"✨ Запис: {s.name} ({s.price:.0f} грн)",
+                        web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?service_id={s.id}"),
+                    )
+                ]
+            )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="💅 Записатися в Mini App",
+                web_app=WebAppInfo(url=settings.WEBAPP_URL),
+            ),
+        ]
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="◀️ До категорій",
+                callback_data="client_services",
+            ),
+            InlineKeyboardButton(
+                text="🏠 Головне меню",
+                callback_data="client_main_menu",
+            ),
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_service_detail_kb(service_id: int, category_id: int | None = None) -> InlineKeyboardMarkup:
+    """Return keyboard with direct Mini App deep link for a specific service."""
+    back_callback = f"client_cat:{category_id}" if category_id else "client_services"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="💅 Записатися в Mini App",
-                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                    text="✨ Записатися на цю послугу",
+                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?service_id={service_id}"),
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="◀️ До категорій",
-                    callback_data="client_services",
+                    text="◀️ Назад до послуг",
+                    callback_data=back_callback,
                 ),
                 InlineKeyboardButton(
-                    text="🏠 Головне меню",
+                    text="🏠 Меню",
                     callback_data="client_main_menu",
                 ),
             ],
@@ -88,7 +128,7 @@ def get_category_services_kb() -> InlineKeyboardMarkup:
 
 
 def get_client_back_kb() -> InlineKeyboardMarkup:
-    """Return generic back button to client main menu."""
+    """Return generic back button to client main menu with Mini App link."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

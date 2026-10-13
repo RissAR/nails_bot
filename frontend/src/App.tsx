@@ -84,12 +84,23 @@ export const App: React.FC = () => {
         setServices(servicesData);
         setMasters(mastersData);
 
-        // Pre-select first service and compatible master
+        // Check deep-link params (?role=admin, ?service_id=X)
+        const urlParams = new URLSearchParams(window.location.search);
+        const reqRole = urlParams.get('role');
+        const reqServiceId = urlParams.get('service_id');
+
+        if (reqRole === 'admin' && authData.role === 'admin') {
+          setActiveTab('admin');
+        }
+
+        // Pre-select requested or first service and compatible master
         if (servicesData.length > 0) {
-          const firstSvc = servicesData[0];
-          setSelectedService(firstSvc);
+          const targetSvc = reqServiceId
+            ? servicesData.find((s) => s.id === Number(reqServiceId)) || servicesData[0]
+            : servicesData[0];
+          setSelectedService(targetSvc);
           const compatible = mastersData.find((m) =>
-            m.service_ids.includes(firstSvc.id)
+            m.service_ids.includes(targetSvc.id)
           );
           if (compatible) {
             setSelectedMaster(compatible);

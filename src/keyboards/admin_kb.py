@@ -9,7 +9,7 @@ def get_admin_main_kb() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="📱 Відкрити адмін-панель TMA",
-                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
                 ),
             ],
             [
@@ -37,13 +37,13 @@ def get_admin_main_kb() -> InlineKeyboardMarkup:
 
 
 def get_admin_back_kb() -> InlineKeyboardMarkup:
-    """Return back button to admin panel."""
+    """Return back button to admin panel with quick TMA link."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text="📱 Відкрити адмін-панель TMA",
-                    web_app=WebAppInfo(url=settings.WEBAPP_URL),
+                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
                 ),
             ],
             [
