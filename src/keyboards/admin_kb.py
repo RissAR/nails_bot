@@ -3,15 +3,23 @@ from src.config import settings
 
 
 def get_admin_main_kb() -> InlineKeyboardMarkup:
-    """Return main admin control panel inline keyboard with WebApp."""
+    """Return main admin control panel inline keyboard with WebApp or safe fallback."""
+    is_https = settings.WEBAPP_URL.startswith("https://")
+
+    if is_https:
+        tma_btn = InlineKeyboardButton(
+            text="📱 Відкрити адмін-панель TMA",
+            web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
+        )
+    else:
+        tma_btn = InlineKeyboardButton(
+            text="📱 Відкрити адмін-панель TMA",
+            callback_data="admin_webapp_http_warning",
+        )
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="📱 Відкрити адмін-панель TMA",
-                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
-                ),
-            ],
+            [tma_btn],
             [
                 InlineKeyboardButton(
                     text="📋 Список послуг",
@@ -38,14 +46,22 @@ def get_admin_main_kb() -> InlineKeyboardMarkup:
 
 def get_admin_back_kb() -> InlineKeyboardMarkup:
     """Return back button to admin panel with quick TMA link."""
+    is_https = settings.WEBAPP_URL.startswith("https://")
+
+    if is_https:
+        tma_btn = InlineKeyboardButton(
+            text="📱 Відкрити адмін-панель TMA",
+            web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
+        )
+    else:
+        tma_btn = InlineKeyboardButton(
+            text="📱 Відкрити адмін-панель TMA",
+            callback_data="admin_webapp_http_warning",
+        )
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="📱 Відкрити адмін-панель TMA",
-                    web_app=WebAppInfo(url=f"{settings.WEBAPP_URL}?role=admin"),
-                ),
-            ],
+            [tma_btn],
             [
                 InlineKeyboardButton(
                     text="◀️ Назад в адмін-панель",

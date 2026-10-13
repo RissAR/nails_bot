@@ -206,3 +206,20 @@ async def admin_clients_stats_callback(
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_admin_back_kb())
     await callback.answer()
+
+
+@admin_router.callback_query(F.data == "admin_webapp_http_warning")
+async def admin_webapp_http_warning_callback(callback: CallbackQuery) -> None:
+    """Inform admin that Telegram WebApp requires HTTPS tunnel."""
+    text = (
+        "⚠️ <b>Адмін-панель TMA потребує HTTPS-з'єднання!</b>\n\n"
+        f"Поточна адреса у конфігурації: <code>{settings.WEBAPP_URL}?role=admin</code>\n\n"
+        "📱 Telegram вимагає обов'язковий HTTPS протокол для запуску WebApp всередині месенджера.\n\n"
+        "👉 <b>Як відкрити:</b>\n"
+        f"1. Відкрийте у веб-браузері: {settings.WEBAPP_URL}?role=admin\n"
+        "2. Або запустіть тунель Cloudflare/ngrok і вкажіть його в <code>.env</code>."
+    )
+    if callback.message:
+        await callback.message.edit_text(text, reply_markup=get_admin_back_kb())
+    await callback.answer()
+
