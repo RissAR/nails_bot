@@ -9,8 +9,8 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: #FDFBF7;
-  color: #2B2623;
+  background-color: #F4ECE4;
+  color: #231E1B;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
@@ -26,10 +26,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #E8E2D8;
+  background: #E4D8CC;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #D4A373;
+  background: #C28751;
 }

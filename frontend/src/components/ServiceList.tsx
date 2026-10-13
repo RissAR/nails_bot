@@ -68,10 +68,10 @@ export const ServiceList: React.FC<ServiceListProps> = ({
             <div
               key={service.id}
               onClick={() => onSelectService(service)}
-              className={`py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-pointer ${
+              className={`py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-pointer shadow-card ${
                 isSelected
-                  ? 'border-[#D4A373] bg-[#FAF6F0] shadow-xs'
-                  : 'bg-nude-surface border-nude-border/80 hover:border-[#D4A373]/40'
+                  ? 'border-nude-primary bg-nude-accent/30'
+                  : 'bg-nude-surface border-nude-border hover:border-nude-primary/40'
               }`}
             >
               {/* Upper row: Radio + Name on left, duration + price on right */}
@@ -80,7 +80,7 @@ export const ServiceList: React.FC<ServiceListProps> = ({
                   <div
                     className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
                       isSelected
-                        ? 'border-[#D4A373] bg-[#D4A373]'
+                        ? 'border-nude-primary bg-nude-primary'
                         : 'border-nude-border bg-nude-bg'
                     }`}
                   >

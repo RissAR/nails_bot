@@ -80,7 +80,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-sm">
+        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Нові заявки</span>
             <Bell className="w-3.5 h-3.5 text-amber-500" />
@@ -93,7 +93,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
 
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-sm">
+        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Сьогодні</span>
             <Calendar className="w-3.5 h-3.5 text-nude-primary" />
@@ -106,7 +106,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
 
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-sm">
+        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Оборот</span>
             <DollarSign className="w-3.5 h-3.5 text-nude-green" />
@@ -119,7 +119,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
 
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-sm">
+        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Клієнти</span>
             <Users className="w-3.5 h-3.5 text-nude-muted" />
@@ -134,7 +134,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Masters on shift preview */}
-      <div className="bg-nude-surface p-3.5 rounded-2xl border border-nude-border shadow-sm space-y-2">
+      <div className="bg-nude-surface p-3.5 rounded-2xl border border-nude-border shadow-card space-y-2">
         <h3 className="text-xs font-bold text-nude-text flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-nude-primary" />
           Команда майстрів студії
@@ -164,7 +164,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {pendingBookings.length === 0 ? (
-          <div className="p-8 text-center bg-nude-surface rounded-2xl border border-nude-border text-nude-muted">
+          <div className="p-8 text-center bg-nude-surface rounded-2xl border border-nude-border text-nude-muted shadow-card">
             <AlertCircle className="w-8 h-8 mx-auto mb-2 text-nude-muted/50" />
             <p className="text-xs font-bold text-nude-text">Нових заявок немає</p>
             <p className="text-[11px] text-nude-muted mt-0.5">Всі записи оброблено або очікується нове бронювання від клієнтів</p>
@@ -174,7 +174,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {pendingBookings.map((b) => (
               <div
                 key={b.id}
-                className="bg-nude-surface p-3.5 rounded-2xl border border-amber-200/80 shadow-sm relative space-y-2"
+                className="bg-nude-surface p-3.5 rounded-2xl border border-amber-200/80 shadow-card relative space-y-2"
               >
                 <div className="flex items-start justify-between">
                   <div>

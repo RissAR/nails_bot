@@ -117,7 +117,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
       <div
-        className="bg-nude-surface w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-nude-border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        className="bg-nude-surface w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-nude-border shadow-card-active overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -322,7 +322,7 @@ export const App: React.FC = () => {
 
       {/* Sticky Bottom Bar for Clients */}
       {!isAdmin && selectedService && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-3 bg-nude-surface/95 backdrop-blur-md border-t border-nude-border z-40 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-3 bg-[#F4ECE4]/95 backdrop-blur-md border-t border-nude-border z-40 shadow-dock">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] text-nude-muted font-medium flex items-center gap-1.5">

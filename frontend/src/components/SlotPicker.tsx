@@ -86,9 +86,9 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
                 triggerHaptic();
                 onSelectDate(item.dateStr);
               }}
-              className={`flex flex-col items-center justify-center min-w-[54px] py-2 px-1 rounded-2xl border transition-all duration-200 shrink-0 ${
+              className={`flex flex-col items-center justify-center min-w-[54px] py-2 px-1 rounded-2xl border transition-all duration-200 shrink-0 shadow-card ${
                 isSelected
-                  ? 'bg-nude-primary text-white border-nude-primary shadow-sm scale-[1.02]'
+                  ? 'bg-nude-primary text-white border-nude-primary scale-[1.02]'
                   : 'bg-nude-surface text-nude-muted border-nude-border hover:border-nude-primary/40'
               }`}
             >
@@ -107,7 +107,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
       </div>
 
       {/* Time slots */}
-      <div className="bg-nude-surface rounded-2xl border border-nude-border p-3.5 space-y-2.5">
+      <div className="bg-nude-surface rounded-2xl border border-nude-border p-3.5 space-y-2.5 shadow-card">
         <div className="flex items-center justify-between text-xs text-nude-muted">
           <span className="flex items-center gap-1 font-medium">
             <Clock className="w-3.5 h-3.5 text-nude-primary" />
@@ -147,8 +147,8 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
                   }}
                   className={`py-2 px-1 rounded-xl text-xs font-bold transition-all duration-150 border text-center ${
                     isSelected
-                      ? 'bg-nude-primary text-white border-nude-primary shadow-sm scale-105'
-                      : 'bg-nude-bg text-nude-text border-nude-border/80 hover:border-nude-primary/60'
+                      ? 'bg-nude-primary text-white border-nude-primary shadow-card scale-105'
+                      : 'bg-nude-bg text-nude-text border-nude-border hover:border-nude-primary/60'
                   }`}
                 >
                   {slot}
