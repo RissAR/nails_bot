@@ -3,15 +3,11 @@ import { MapPin, Clock, Sparkles, ShieldCheck } from 'lucide-react';
 
 interface HeaderProps {
   isAdmin: boolean;
-  activeTab: 'client' | 'admin';
-  onTabChange: (tab: 'client' | 'admin') => void;
   userName?: string | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   isAdmin,
-  activeTab,
-  onTabChange,
   userName,
 }) => {
   return (
@@ -31,11 +27,18 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {userName && (
-          <div className="text-xs font-medium text-nude-muted bg-nude-bg px-2.5 py-1 rounded-full border border-nude-border">
-            {userName}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <span className="text-[11px] font-bold text-nude-primary bg-nude-accent/60 px-2.5 py-0.5 rounded-full border border-nude-primary/30">
+              Адміністратор
+            </span>
+          )}
+          {userName && (
+            <div className="text-xs font-medium text-nude-muted bg-nude-bg px-2.5 py-1 rounded-full border border-nude-border">
+              {userName}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Studio mini info badges */}
@@ -53,36 +56,6 @@ export const Header: React.FC<HeaderProps> = ({
           100% стерильно
         </span>
       </div>
-
-      {/* Admin Switcher */}
-      {isAdmin && (
-        <div className="mt-3 pt-2.5 border-t border-nude-border/80">
-          <div className="bg-nude-bg p-1 rounded-xl flex items-center gap-1 border border-nude-border">
-            <button
-              type="button"
-              onClick={() => onTabChange('client')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                activeTab === 'client'
-                  ? 'bg-nude-surface text-nude-text shadow-sm border border-nude-border'
-                  : 'text-nude-muted hover:text-nude-text'
-              }`}
-            >
-              💅 Клієнтська аппка
-            </button>
-            <button
-              type="button"
-              onClick={() => onTabChange('admin')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                activeTab === 'admin'
-                  ? 'bg-nude-primary text-white shadow-sm'
-                  : 'text-nude-muted hover:text-nude-text'
-              }`}
-            >
-              ⚙️ Панель адміна
-            </button>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

@@ -18,7 +18,6 @@ import {
 
 export const App: React.FC = () => {
   // 1. Hooks - State declarations at the very top (Rules of Hooks)
-  const [activeTab, setActiveTab] = useState<'client' | 'admin'>('client');
   const [auth, setAuth] = useState<UserAuth | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [masters, setMasters] = useState<Master[]>([]);
@@ -48,6 +47,8 @@ export const App: React.FC = () => {
   // Global loading & error
   const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
+
+  const isAdmin = auth?.role === 'admin' || auth?.telegram_id === 8607080614;
 
   // 2. Telegram WebApp initialization
   useEffect(() => {
@@ -84,16 +85,9 @@ export const App: React.FC = () => {
         setServices(servicesData);
         setMasters(mastersData);
 
-        // Check deep-link params (?role=admin, ?service_id=X)
+        // Pre-select requested or first service and compatible master for client flow
         const urlParams = new URLSearchParams(window.location.search);
-        const reqRole = urlParams.get('role');
         const reqServiceId = urlParams.get('service_id');
-
-        if (reqRole === 'admin' && authData.role === 'admin') {
-          setActiveTab('admin');
-        }
-
-        // Pre-select requested or first service and compatible master
         if (servicesData.length > 0) {
           const targetSvc = reqServiceId
             ? servicesData.find((s) => s.id === Number(reqServiceId)) || servicesData[0]
@@ -153,9 +147,8 @@ export const App: React.FC = () => {
     };
   }, [selectedMaster, selectedService, selectedDate]);
 
-  // 5. Load admin data when switching to admin tab
+  // 5. Load admin data when user is admin
   const loadAdminData = useCallback(async () => {
-    if (auth?.role !== 'admin') return;
     setIsLoadingAdmin(true);
     try {
       const [bookingsData, statsData] = await Promise.all([
@@ -169,13 +162,20 @@ export const App: React.FC = () => {
     } finally {
       setIsLoadingAdmin(false);
     }
-  }, [auth]);
+  }, []);
 
   useEffect(() => {
-    if (activeTab === 'admin') {
+    if (isAdmin) {
       loadAdminData();
     }
-  }, [activeTab, loadAdminData]);
+  }, [isAdmin, loadAdminData]);
+
+  const handleAdminBookingStatusUpdate = (id: number, newStatus: 'confirmed' | 'rejected') => {
+    setAdminBookings((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
+    );
+    api.getAdminStats().then(setAdminStats).catch(() => {});
+  };
 
   // Handle service selection and compatibility
   const handleSelectService = (service: Service) => {
@@ -272,21 +272,20 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-nude-bg flex flex-col max-w-lg mx-auto shadow-2xl relative pb-28">
       {/* Header */}
       <Header
-        isAdmin={auth?.role === 'admin'}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
+        isAdmin={isAdmin}
         userName={auth?.first_name || tgUser?.first_name}
       />
 
       {/* Main Container */}
       <main className="p-4 space-y-6">
-        {activeTab === 'admin' ? (
+        {isAdmin ? (
           <AdminDashboard
             bookings={adminBookings}
             stats={adminStats}
             masters={masters}
             onRefresh={loadAdminData}
             isLoading={isLoadingAdmin}
+            onStatusUpdate={handleAdminBookingStatusUpdate}
           />
         ) : (
           <>
@@ -322,7 +321,7 @@ export const App: React.FC = () => {
       </main>
 
       {/* Sticky Bottom Bar for Clients */}
-      {activeTab === 'client' && selectedService && (
+      {!isAdmin && selectedService && (
         <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-3.5 bg-nude-surface/95 backdrop-blur-md border-t border-nude-border z-40 shadow-lg">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -360,8 +359,8 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Booking Confirmation Modal */}
-      {selectedService && selectedMaster && selectedSlot && (
+      {/* Booking Confirmation Modal for Clients */}
+      {!isAdmin && selectedService && selectedMaster && selectedSlot && (
         <BookingModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}

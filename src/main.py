@@ -4,10 +4,9 @@ import sys
 import uvicorn
 
 from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 
+from src.bot import get_bot
 from src.api.app import app as fastapi_app
 from src.config import settings
 from src.database import init_db
@@ -72,10 +71,7 @@ async def main() -> None:
     await init_db()
     logger.info("Database initialized successfully.")
 
-    bot = Bot(
-        token=settings.BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    bot = get_bot()
     dp = Dispatcher()
 
     # Register Middlewares

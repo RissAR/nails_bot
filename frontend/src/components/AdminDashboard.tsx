@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Bell,
   Calendar,
@@ -10,7 +10,11 @@ import {
   Users,
   CheckCircle,
   AlertCircle,
+  Check,
+  X,
+  Loader2,
 } from 'lucide-react';
+import { api } from '../api/client';
 import { AdminBooking, AdminStats, Master } from '../types';
 
 interface AdminDashboardProps {
@@ -19,6 +23,7 @@ interface AdminDashboardProps {
   masters: Master[];
   onRefresh: () => void;
   isLoading: boolean;
+  onStatusUpdate?: (id: number, newStatus: 'confirmed' | 'rejected') => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -27,9 +32,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   masters,
   onRefresh,
   isLoading,
+  onStatusUpdate,
 }) => {
+  const [processingId, setProcessingId] = useState<number | null>(null);
   const pendingBookings = bookings.filter((b) => b.status === 'pending');
   const todayStr = new Date().toISOString().split('T')[0];
+
+  const handleAction = async (id: number, action: 'confirm' | 'reject') => {
+    setProcessingId(id);
+    try {
+      if (action === 'confirm') {
+        await api.confirmBooking(id);
+        onStatusUpdate?.(id, 'confirmed');
+      } else {
+        await api.rejectBooking(id);
+        onStatusUpdate?.(id, 'rejected');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Помилка оновлення статусу заявки');
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -194,6 +218,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Коментар: "{b.notes}"
                   </p>
                 )}
+
+                {/* Interactive Action Buttons */}
+                <div className="flex items-center gap-2 pt-2 border-t border-nude-border/60">
+                  <button
+                    type="button"
+                    disabled={processingId === b.id}
+                    onClick={() => handleAction(b.id, 'confirm')}
+                    className="flex-1 py-2 px-3 rounded-xl bg-nude-greenLight text-nude-green font-bold text-xs hover:bg-nude-greenLight/80 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                  >
+                    {processingId === b.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>Підтвердити</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processingId === b.id}
+                    onClick={() => handleAction(b.id, 'reject')}
+                    className="flex-1 py-2 px-3 rounded-xl bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                  >
+                    {processingId === b.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <X className="w-3.5 h-3.5" />
+                    )}
+                    <span>Відхилити</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>

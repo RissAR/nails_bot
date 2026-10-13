@@ -34,18 +34,53 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onSuccessDone,
 }) => {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('+380');
+  const [phoneSuffix, setPhoneSuffix] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (telegramUser?.first_name) {
-      setName(telegramUser.first_name);
+      const cleanName = telegramUser.first_name
+        .replace(/[^А-Яа-яІіЇїЄєҐґ'\s\-]/g, '')
+        .slice(0, 40);
+      if (cleanName) setName(cleanName);
     }
     if (telegramUser?.phone_number) {
-      setPhone(telegramUser.phone_number);
+      const rawDigits = telegramUser.phone_number.replace(/\D/g, '');
+      let suffix = rawDigits;
+      if (suffix.startsWith('380')) {
+        suffix = suffix.slice(3);
+      }
+      setPhoneSuffix(suffix.slice(0, 9));
     }
   }, [telegramUser]);
+
+  const formatPhoneDigits = (raw: string) => {
+    const d = raw.slice(0, 9);
+    if (d.length <= 2) return d;
+    if (d.length <= 5) return `${d.slice(0, 2)} ${d.slice(2)}`;
+    if (d.length <= 7) return `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5)}`;
+    return `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 7)} ${d.slice(7, 9)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, '');
+    let suffix = digitsOnly;
+    if (suffix.startsWith('380')) {
+      suffix = suffix.slice(3);
+    }
+    setPhoneSuffix(suffix.slice(0, 9));
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const filtered = val.replace(/[^А-Яа-яІіЇїЄєҐґ'\s\-]/g, '');
+    if (filtered.length <= 40) {
+      setName(filtered);
+    }
+  };
+
+  const isFormValid = name.trim().length >= 2 && name.trim().length <= 40 && phoneSuffix.length === 9;
 
   if (!isOpen) return null;
 
@@ -53,18 +88,20 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError("Будь ласка, вкажіть ваше ім'я");
+    if (name.trim().length < 2 || name.trim().length > 40) {
+      setError("Ім'я має містити виключно українські літери (від 2 до 40 символів)");
       return;
     }
 
-    if (!phone.trim() || phone.trim().length < 10) {
-      setError('Вкажіть коректний контактний номер телефону');
+    if (phoneSuffix.length !== 9) {
+      setError("Номер телефону має бути у форматі +380XXXXXXXXX (9 цифр після коду країни)");
       return;
     }
+
+    const fullPhone = `+380${phoneSuffix}`;
 
     try {
-      await onSubmit({ name: name.trim(), phone: phone.trim(), notes: notes.trim() });
+      await onSubmit({ name: name.trim(), phone: fullPhone, notes: notes.trim() });
     } catch (err: any) {
       setError(err.message || 'Помилка при створенні бронювання');
     }
@@ -166,37 +203,59 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               {/* Form fields */}
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-nude-text mb-1">
-                    Ваше ім'я *
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-semibold text-nude-text">
+                      Ваше ім'я *
+                    </label>
+                    <span className="text-[10px] text-nude-muted">
+                      {name.length}/40
+                    </span>
+                  </div>
                   <div className="relative">
-                    <User className="w-4 h-4 text-nude-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                    <User className="w-4 h-4 text-nude-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       required
                       placeholder="Наприклад: Олена"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={handleNameChange}
+                      maxLength={40}
                       className="w-full pl-9 pr-3 py-2.5 bg-nude-bg rounded-xl border border-nude-border text-xs text-nude-text placeholder:text-nude-muted/60 focus:outline-none focus:border-nude-primary transition-colors"
                     />
                   </div>
+                  <p className="text-[10px] text-nude-muted mt-1 px-0.5">
+                    Лише українські літери (від 2 до 40 символів)
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-nude-text mb-1">
-                    Номер телефону *
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-nude-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-semibold text-nude-text">
+                      Номер телефону *
+                    </label>
+                    <span className={`text-[10px] ${phoneSuffix.length === 9 ? 'text-nude-green font-semibold' : 'text-nude-muted'}`}>
+                      {phoneSuffix.length}/9 цифр
+                    </span>
+                  </div>
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none select-none">
+                      <Phone className="w-4 h-4 text-nude-muted" />
+                      <span className="text-xs font-bold text-nude-text border-r border-nude-border pr-1.5">+380</span>
+                    </div>
                     <input
                       type="tel"
+                      inputMode="numeric"
                       required
-                      placeholder="+380..."
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 bg-nude-bg rounded-xl border border-nude-border text-xs text-nude-text placeholder:text-nude-muted/60 focus:outline-none focus:border-nude-primary transition-colors"
+                      placeholder="97 123 45 67"
+                      value={formatPhoneDigits(phoneSuffix)}
+                      onChange={handlePhoneChange}
+                      maxLength={12}
+                      className="w-full pl-20 pr-3 py-2.5 bg-nude-bg rounded-xl border border-nude-border text-xs text-nude-text font-medium placeholder:text-nude-muted/60 focus:outline-none focus:border-nude-primary transition-colors"
                     />
                   </div>
+                  <p className="text-[10px] text-nude-muted mt-1 px-0.5">
+                    Формат: +380XXXXXXXXX (9 цифр після +380)
+                  </p>
                 </div>
 
                 <div>
@@ -216,8 +275,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-nude-primary text-white hover:bg-nude-primaryHover disabled:opacity-60 transition-all flex items-center justify-center gap-2 shadow-sm"
+                disabled={isSubmitting || !isFormValid}
+                className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-nude-primary text-white hover:bg-nude-primaryHover disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm"
               >
                 {isSubmitting ? (
                   <>

@@ -60,6 +60,28 @@ export const api = {
     return res.json();
   },
 
+  async confirmBooking(id: number): Promise<AdminBooking> {
+    const res = await fetch(`${API_BASE}/admin/bookings/${id}/confirm`, {
+      method: 'PATCH',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Помилка підтвердження запису');
+    }
+    return res.json();
+  },
+
+  async rejectBooking(id: number): Promise<AdminBooking> {
+    const res = await fetch(`${API_BASE}/admin/bookings/${id}/reject`, {
+      method: 'PATCH',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Помилка відхилення запису');
+    }
+    return res.json();
+  },
+
   async getAdminStats(): Promise<AdminStats> {
     const res = await fetch(`${API_BASE}/admin/stats`);
     if (!res.ok) throw new Error('Помилка завантаження статистики');

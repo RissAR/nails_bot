@@ -1,10 +1,11 @@
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.bot import notify_client_booking_status
 from src.config import settings
 from src.database.models.appointment import Appointment
 from src.database.models.category import Category
@@ -222,4 +223,153 @@ async def admin_webapp_http_warning_callback(callback: CallbackQuery) -> None:
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_admin_back_kb())
     await callback.answer()
+
+
+@admin_router.callback_query(F.data.startswith("adm_appr:"))
+async def admin_approve_booking_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """Handle admin booking confirmation inline button."""
+    try:
+        appointment_id = int(callback.data.split(":")[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некоректний ID запису", show_alert=True)
+        return
+
+    stmt = (
+        select(Appointment)
+        .options(
+            selectinload(Appointment.client),
+            selectinload(Appointment.service),
+            selectinload(Appointment.master),
+        )
+        .where(Appointment.id == appointment_id)
+    )
+    result = await session.execute(stmt)
+    apt = result.scalar_one_or_none()
+
+    if not apt:
+        await callback.answer("Запис не знайдено!", show_alert=True)
+        return
+
+    if apt.status == "confirmed":
+        await callback.answer("Заявку вже підтверджено!")
+        return
+
+    apt.status = "confirmed"
+    await session.commit()
+    await session.refresh(apt)
+
+    if callback.message:
+        current_text = callback.message.html_text or callback.message.text or ""
+        new_text = f"{current_text}\n\n✅ <b>ЗАЯВКУ ПІДТВЕРДЖЕНО</b>"
+        new_markup = None
+        if callback.message.reply_markup:
+            remaining_rows = [
+                row
+                for row in callback.message.reply_markup.inline_keyboard
+                if not any(
+                    btn.callback_data
+                    and (btn.callback_data.startswith("adm_appr:") or btn.callback_data.startswith("adm_rejc:"))
+                    for btn in row
+                )
+            ]
+            if remaining_rows:
+                new_markup = InlineKeyboardMarkup(inline_keyboard=remaining_rows)
+
+        try:
+            await callback.message.edit_text(new_text, reply_markup=new_markup)
+        except Exception:
+            pass
+
+    if apt.client and apt.client.telegram_id and apt.client.telegram_id > 0:
+        try:
+            await notify_client_booking_status(
+                client_tg_id=apt.client.telegram_id,
+                status="confirmed",
+                service_name=apt.service.name if apt.service else "Послуга",
+                master_name=apt.master.name if apt.master else "Майстер",
+                booking_date=apt.booking_date.strftime("%d.%m.%Y"),
+                start_time=apt.start_time.strftime("%H:%M"),
+            )
+        except Exception:
+            pass
+
+    await callback.answer("✅ Заявку успішно підтверджено!")
+
+
+@admin_router.callback_query(F.data.startswith("adm_rejc:"))
+async def admin_reject_booking_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """Handle admin booking rejection inline button."""
+    try:
+        appointment_id = int(callback.data.split(":")[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некоректний ID запису", show_alert=True)
+        return
+
+    stmt = (
+        select(Appointment)
+        .options(
+            selectinload(Appointment.client),
+            selectinload(Appointment.service),
+            selectinload(Appointment.master),
+        )
+        .where(Appointment.id == appointment_id)
+    )
+    result = await session.execute(stmt)
+    apt = result.scalar_one_or_none()
+
+    if not apt:
+        await callback.answer("Запис не знайдено!", show_alert=True)
+        return
+
+    if apt.status == "rejected":
+        await callback.answer("Заявку вже відхилено!")
+        return
+
+    apt.status = "rejected"
+    await session.commit()
+    await session.refresh(apt)
+
+    if callback.message:
+        current_text = callback.message.html_text or callback.message.text or ""
+        new_text = f"{current_text}\n\n❌ <b>ЗАЯВКУ ВІДХИЛЕНО</b>"
+        new_markup = None
+        if callback.message.reply_markup:
+            remaining_rows = [
+                row
+                for row in callback.message.reply_markup.inline_keyboard
+                if not any(
+                    btn.callback_data
+                    and (btn.callback_data.startswith("adm_appr:") or btn.callback_data.startswith("adm_rejc:"))
+                    for btn in row
+                )
+            ]
+            if remaining_rows:
+                new_markup = InlineKeyboardMarkup(inline_keyboard=remaining_rows)
+
+        try:
+            await callback.message.edit_text(new_text, reply_markup=new_markup)
+        except Exception:
+            pass
+
+    if apt.client and apt.client.telegram_id and apt.client.telegram_id > 0:
+        try:
+            await notify_client_booking_status(
+                client_tg_id=apt.client.telegram_id,
+                status="rejected",
+                service_name=apt.service.name if apt.service else "Послуга",
+                master_name=apt.master.name if apt.master else "Майстер",
+                booking_date=apt.booking_date.strftime("%d.%m.%Y"),
+                start_time=apt.start_time.strftime("%H:%M"),
+            )
+        except Exception:
+            pass
+
+    await callback.answer("❌ Заявку відхилено!")
+
 
