@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Check, Clock, Sparkles } from 'lucide-react';
 import { Service } from '../types';
 
 interface ServiceListProps {
@@ -31,7 +30,7 @@ export const ServiceList: React.FC<ServiceListProps> = ({
   });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-bold text-nude-text flex items-center gap-1.5">
           <span className="w-5 h-5 rounded-full bg-nude-primary text-white text-[11px] flex items-center justify-center font-bold">1</span>
@@ -43,15 +42,15 @@ export const ServiceList: React.FC<ServiceListProps> = ({
       </div>
 
       {/* Category Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
         {filterTabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveCategoryFilter(tab.id)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
               activeCategoryFilter === tab.id
-                ? 'bg-nude-primary text-white shadow-sm'
+                ? 'bg-nude-primary text-white shadow-xs'
                 : 'bg-nude-surface text-nude-muted border border-nude-border hover:text-nude-text'
             }`}
           >
@@ -60,8 +59,8 @@ export const ServiceList: React.FC<ServiceListProps> = ({
         ))}
       </div>
 
-      {/* Services Cards */}
-      <div className="grid gap-2.5">
+      {/* Services List Tiles */}
+      <div className="space-y-1.5">
         {filteredServices.map((service) => {
           const isSelected = selectedService?.id === service.id;
 
@@ -69,52 +68,42 @@ export const ServiceList: React.FC<ServiceListProps> = ({
             <div
               key={service.id}
               onClick={() => onSelectService(service)}
-              className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer relative ${
+              className={`py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-pointer ${
                 isSelected
-                  ? 'bg-nude-accent/30 border-nude-primary shadow-sm'
-                  : 'bg-nude-surface border-nude-border/80 hover:border-nude-primary/40'
+                  ? 'border-[#D4A373] bg-[#FAF6F0] shadow-xs'
+                  : 'bg-nude-surface border-nude-border/80 hover:border-[#D4A373]/40'
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-nude-primary bg-nude-accent/50 px-2 py-0.5 rounded-full">
-                      {service.category_name}
-                    </span>
+              {/* Upper row: Radio + Name on left, duration + price on right */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      isSelected
+                        ? 'border-[#D4A373] bg-[#D4A373]'
+                        : 'border-nude-border bg-nude-bg'
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
                   </div>
-
-                  <h3 className="text-sm font-bold text-nude-text mt-1.5 leading-snug">
+                  <span className="text-xs font-bold text-nude-text truncate">
                     {service.name}
-                  </h3>
-
-                  {service.description && (
-                    <p className="text-xs text-nude-muted mt-1 line-clamp-2 leading-relaxed">
-                      {service.description}
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-3 mt-2.5 text-xs text-nude-muted">
-                    <span className="flex items-center gap-1 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-nude-primary" />
-                      {service.duration_minutes} хв
-                    </span>
-                    <span className="font-bold text-nude-text text-sm">
-                      {service.price} грн
-                    </span>
-                  </div>
+                  </span>
                 </div>
 
-                {/* Selection Indicator */}
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border transition-all ${
-                    isSelected
-                      ? 'bg-nude-primary border-nude-primary text-white shadow-sm'
-                      : 'border-nude-border bg-nude-bg text-transparent'
-                  }`}
-                >
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                <div className="text-xs font-bold text-nude-text whitespace-nowrap shrink-0">
+                  {service.duration_minutes} хв • {Math.round(service.price)} ₴
                 </div>
               </div>
+
+              {/* Lower row: Short description */}
+              {service.description && (
+                <div className="text-[10px] text-nude-muted truncate max-w-[240px] pl-6 mt-0.5">
+                  {service.description}
+                </div>
+              )}
             </div>
           );
         })}

@@ -269,7 +269,7 @@ export const App: React.FC = () => {
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
   return (
-    <div className="min-h-screen bg-nude-bg flex flex-col max-w-lg mx-auto shadow-2xl relative pb-28">
+    <div className="min-h-screen bg-nude-bg flex flex-col max-w-lg mx-auto shadow-2xl relative pb-24">
       {/* Header */}
       <Header
         isAdmin={isAdmin}
@@ -277,7 +277,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Container */}
-      <main className="p-4 space-y-6">
+      <main className="p-3.5 space-y-4">
         {isAdmin ? (
           <AdminDashboard
             bookings={adminBookings}
@@ -322,7 +322,7 @@ export const App: React.FC = () => {
 
       {/* Sticky Bottom Bar for Clients */}
       {!isAdmin && selectedService && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-3.5 bg-nude-surface/95 backdrop-blur-md border-t border-nude-border z-40 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-3 bg-nude-surface/95 backdrop-blur-md border-t border-nude-border z-40 shadow-lg">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] text-nude-muted font-medium flex items-center gap-1.5">
@@ -331,20 +331,22 @@ export const App: React.FC = () => {
                 <span>{selectedService.duration_minutes} хв</span>
               </div>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-lg font-black text-nude-text">
-                  {auth?.discount_percent && auth.discount_percent > 0
-                    ? `${Math.round(selectedService.price * (1 - auth.discount_percent / 100))} грн`
-                    : `${selectedService.price} грн`}
-                </span>
-                {auth?.discount_percent && auth.discount_percent > 0 && (
+                {(auth?.discount_percent ?? 0) > 0 ? (
                   <>
+                    <span className="text-base font-black text-nude-text">
+                      {Math.round(selectedService.price * (1 - (auth?.discount_percent ?? 0) / 100))} ₴
+                    </span>
                     <span className="text-xs text-nude-muted line-through ml-1">
-                      {selectedService.price} грн
+                      {Math.round(selectedService.price)} ₴
                     </span>
                     <span className="text-[10px] font-bold text-nude-green bg-nude-greenLight px-1.5 py-0.5 rounded ml-1">
-                      -{auth.discount_percent}%
+                      -{auth?.discount_percent}%
                     </span>
                   </>
+                ) : (
+                  <span className="text-base font-black text-nude-text">
+                    {Math.round(selectedService.price)} ₴
+                  </span>
                 )}
                 {selectedSlot && (
                   <span className="text-xs text-nude-primary font-bold ml-1">
@@ -358,7 +360,7 @@ export const App: React.FC = () => {
               type="button"
               disabled={!selectedSlot}
               onClick={() => setIsModalOpen(true)}
-              className={`px-5 py-3 rounded-2xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm ${
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm ${
                 selectedSlot
                   ? 'bg-nude-primary text-white hover:bg-nude-primaryHover active:scale-95'
                   : 'bg-nude-border/70 text-nude-muted/80 cursor-not-allowed'

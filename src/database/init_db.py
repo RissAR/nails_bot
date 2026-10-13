@@ -15,13 +15,165 @@ from src.database.session import async_session_maker, engine
 logger = logging.getLogger(__name__)
 
 
+SERVICES_CATALOG = [
+    {
+        "category_slug": "manicure-complexes",
+        "name": "Комплекс «Базовий Однотон»",
+        "description": "Зняття старого покриття, комбінований/апаратний манікюр, вирівнювання пластини, покриття гель-лаком в один тон.",
+        "duration_minutes": 90,
+        "price": 750.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "manicure-complexes",
+        "name": "Комплекс «Френч / Градієнт»",
+        "description": "Повний комплекс манікюру з ідеальним френчем або плавним градієнтом на всі нігтики.",
+        "duration_minutes": 105,
+        "price": 900.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "manicure-complexes",
+        "name": "Комплекс «Укріплення гелем + Однотон»",
+        "description": "Зняття + комбі-чистка + армування міцним гелем/акригелем + покриття",
+        "duration_minutes": 105,
+        "price": 900.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "manicure-complexes",
+        "name": "Гігієнічний манікюр",
+        "description": "Чистий комбінований/апаратний манікюр без покриття, полірування або лікувальне зміцнення.",
+        "duration_minutes": 45,
+        "price": 350.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "manicure-complexes",
+        "name": "Чоловічий гігієнічний манікюр",
+        "description": "Апаратна/комбінована чистка жорсткої кутикули, шліфування, доглядова олія",
+        "duration_minutes": 45,
+        "price": 500.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "manicure-complexes",
+        "name": "Японський Еко-манікюр",
+        "description": "Натуральний догляд та втирання мінеральної пасти з перловою пудрою для природного блиску та зміцнення.",
+        "duration_minutes": 60,
+        "price": 600.0,
+        "masters": ["Вікторія"],
+    },
+    {
+        "category_slug": "nail-extensions",
+        "name": "Нарощування нігтів (з нуля)",
+        "description": "Нарощування гелем або полігелем бажаної довжини та форми, манікюр, однотонне покриття.",
+        "duration_minutes": 150,
+        "price": 1100.0,
+        "masters": ["Олена"],
+    },
+    {
+        "category_slug": "nail-extensions",
+        "name": "Корекція нарощених нігтів",
+        "description": "Відновлення архітектури нарощених нігтів, підняття клюючих нігтів, зміна форми, покриття.",
+        "duration_minutes": 120,
+        "price": 800.0,
+        "masters": ["Олена"],
+    },
+    {
+        "category_slug": "care-addons",
+        "name": "Ремонт / Донарощування 1 нігтя",
+        "description": "Ремонт тріщини шовком/акрилом або донарощування зламаного нігтя.",
+        "duration_minutes": 15,
+        "price": 70.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "care-addons",
+        "name": "Укріплення гелем / акрилом",
+        "description": "Додаткове зміцнення тонких або схильних до ламкості нігтів твердим матеріалом.",
+        "duration_minutes": 20,
+        "price": 150.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "care-addons",
+        "name": "SPA-догляд (Парафінотерапія)",
+        "description": "Глибоке живлення та відновлення шкіри рук гарячим парафіном з арома-маслами.",
+        "duration_minutes": 30,
+        "price": 200.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+    {
+        "category_slug": "care-addons",
+        "name": "Зняття матеріалу (без манікюру)",
+        "description": "Безпечне апаратне зняття штучного покриття з наданням форми нігтям",
+        "duration_minutes": 30,
+        "price": 200.0,
+        "masters": ["Олена", "Вікторія"],
+    },
+]
+
+
+async def sync_services_and_prices() -> None:
+    """Synchronize service prices, durations and ensure all 12 services exist."""
+    async with async_session_maker() as session:
+        categories = (await session.scalars(select(Category))).all()
+        cat_map = {c.slug: c.id for c in categories}
+        masters = (await session.scalars(select(Master))).all()
+        master_map = {m.name: m.id for m in masters}
+
+        existing_services = (await session.scalars(select(Service))).all()
+        existing_map = {s.name: s for s in existing_services}
+
+        for item in SERVICES_CATALOG:
+            cat_id = cat_map.get(item["category_slug"])
+            if not cat_id:
+                continue
+
+            svc = existing_map.get(item["name"])
+            if svc:
+                svc.price = item["price"]
+                svc.duration_minutes = item["duration_minutes"]
+                svc.category_id = cat_id
+                if item.get("description"):
+                    svc.description = item["description"]
+            else:
+                svc = Service(
+                    category_id=cat_id,
+                    name=item["name"],
+                    description=item.get("description", ""),
+                    duration_minutes=item["duration_minutes"],
+                    price=item["price"],
+                    is_active=True,
+                )
+                session.add(svc)
+                await session.flush()
+                existing_map[item["name"]] = svc
+
+            for m_name in item["masters"]:
+                m_id = master_map.get(m_name)
+                if m_id:
+                    link_exists = await session.scalar(
+                        select(MasterService).where(
+                            MasterService.master_id == m_id,
+                            MasterService.service_id == svc.id,
+                        )
+                    )
+                    if not link_exists:
+                        session.add(MasterService(master_id=m_id, service_id=svc.id))
+
+        await session.commit()
+        logger.info("Successfully synced service catalog, prices and master links.")
+
+
 async def seed_initial_data() -> None:
     """Seed initial Sense Nail Studio categories, masters, services, and schedules."""
     async with async_session_maker() as session:
         # Check if already seeded
         categories_count = await session.scalar(select(func.count(Category.id)))
         if categories_count and categories_count > 0:
-            logger.info("Database already contains seeded data. Skipping seeding.")
+            logger.info("Database already contains seeded categories. Proceeding to sync.")
             return
 
         logger.info("Seeding initial Sense Nail Studio data...")
@@ -89,127 +241,13 @@ async def seed_initial_data() -> None:
             slug="care-addons",
         )
         session.add_all([cat_complexes, cat_extensions, cat_addons])
-        await session.flush()
-
-        # 4. Services
-        # Category 1: Комплекси манікюру
-        s1 = Service(
-            category_id=cat_complexes.id,
-            name="Комплекс «Базовий Однотон»",
-            description="Зняття старого покриття, комбінований/апаратний манікюр, вирівнювання пластини, покриття гель-лаком в один тон.",
-            duration_minutes=90,
-            price=550.0,
-            is_active=True,
-        )
-        s2 = Service(
-            category_id=cat_complexes.id,
-            name="Комплекс «Френч / Градієнт»",
-            description="Повний комплекс манікюру з ідеальним френчем або плавним градієнтом на всі нігтики.",
-            duration_minutes=105,
-            price=650.0,
-            is_active=True,
-        )
-        s3 = Service(
-            category_id=cat_complexes.id,
-            name="Гігієнічний манікюр",
-            description="Чистий комбінований/апаратний манікюр без покриття, полірування або лікувальне зміцнення.",
-            duration_minutes=45,
-            price=350.0,
-            is_active=True,
-        )
-        s4 = Service(
-            category_id=cat_complexes.id,
-            name="Японський Еко-манікюр",
-            description="Натуральний догляд та втирання мінеральної пасти з перловою пудрою для природного блиску та зміцнення.",
-            duration_minutes=60,
-            price=450.0,
-            is_active=True,
-        )
-
-        # Category 2: Моделювання та нарощування
-        s5 = Service(
-            category_id=cat_extensions.id,
-            name="Нарощування нігтів (з нуля)",
-            description="Нарощування гелем або полігелем бажаної довжини та форми, манікюр, однотонне покриття.",
-            duration_minutes=150,
-            price=900.0,
-            is_active=True,
-        )
-        s6 = Service(
-            category_id=cat_extensions.id,
-            name="Корекція нарощених нігтів",
-            description="Відновлення архітектури нарощених нігтів, підняття клюючих нігтів, зміна форми, покриття.",
-            duration_minutes=120,
-            price=750.0,
-            is_active=True,
-        )
-
-        # Category 3: Доглядові послуги та Add-ons
-        s7 = Service(
-            category_id=cat_addons.id,
-            name="Ремонт / Донарощування 1 нігтя",
-            description="Ремонт тріщини шовком/акрилом або донарощування зламаного нігтя.",
-            duration_minutes=15,
-            price=70.0,
-            is_active=True,
-        )
-        s8 = Service(
-            category_id=cat_addons.id,
-            name="Укріплення гелем / акрилом",
-            description="Додаткове зміцнення тонких або схильних до ламкості нігтів твердим матеріалом.",
-            duration_minutes=20,
-            price=150.0,
-            is_active=True,
-        )
-        s9 = Service(
-            category_id=cat_addons.id,
-            name="SPA-догляд (Парафінотерапія)",
-            description="Глибоке живлення та відновлення шкіри рук гарячим парафіном з арома-маслами.",
-            duration_minutes=30,
-            price=200.0,
-            is_active=True,
-        )
-
-        services = [s1, s2, s3, s4, s5, s6, s7, s8, s9]
-        session.add_all(services)
-        await session.flush()
-
-        # 5. Master-Service links:
-        # s1: Олена, Вікторія
-        # s2: Олена, Вікторія
-        # s3: Олена, Вікторія
-        # s4: лише Вікторія
-        # s5: лише Олена
-        # s6: лише Олена
-        # s7: Олена, Вікторія
-        # s8: Олена, Вікторія
-        # s9: Олена, Вікторія
-        master_service_links = [
-            MasterService(master_id=olena.id, service_id=s1.id),
-            MasterService(master_id=viktoria.id, service_id=s1.id),
-            MasterService(master_id=olena.id, service_id=s2.id),
-            MasterService(master_id=viktoria.id, service_id=s2.id),
-            MasterService(master_id=olena.id, service_id=s3.id),
-            MasterService(master_id=viktoria.id, service_id=s3.id),
-            MasterService(master_id=viktoria.id, service_id=s4.id),
-            MasterService(master_id=olena.id, service_id=s5.id),
-            MasterService(master_id=olena.id, service_id=s6.id),
-            MasterService(master_id=olena.id, service_id=s7.id),
-            MasterService(master_id=viktoria.id, service_id=s7.id),
-            MasterService(master_id=olena.id, service_id=s8.id),
-            MasterService(master_id=viktoria.id, service_id=s8.id),
-            MasterService(master_id=olena.id, service_id=s9.id),
-            MasterService(master_id=viktoria.id, service_id=s9.id),
-        ]
-        session.add_all(master_service_links)
         await session.commit()
-        logger.info("Successfully seeded Sense Nail Studio initial data.")
+        logger.info("Successfully seeded Sense Nail Studio categories, masters, and schedules.")
 
 
 async def init_db() -> None:
-    """Initialize database tables and seed data."""
+    """Initialize database tables, seed data, and sync services."""
     from sqlalchemy import text
-    # Ensure models are imported
     import src.database.models  # noqa: F401
 
     async with engine.begin() as conn:
@@ -228,3 +266,4 @@ async def init_db() -> None:
                 pass
 
     await seed_initial_data()
+    await sync_services_and_prices()

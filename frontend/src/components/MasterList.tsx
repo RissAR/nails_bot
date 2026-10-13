@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Star, AlertCircle } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Master, Service } from '../types';
 
 interface MasterListProps {
@@ -16,24 +16,28 @@ export const MasterList: React.FC<MasterListProps> = ({
   selectedService,
 }) => {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-bold text-nude-text flex items-center gap-1.5">
           <span className="w-5 h-5 rounded-full bg-nude-primary text-white text-[11px] flex items-center justify-center font-bold">2</span>
           Оберіть майстра
         </h2>
         {selectedService && (
-          <span className="text-xs text-nude-muted">
+          <span className="text-xs text-nude-muted truncate max-w-[180px]">
             Для: {selectedService.name}
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         {masters.map((master) => {
           const isCompatible =
             !selectedService || master.service_ids.includes(selectedService.id);
           const isSelected = selectedMaster?.id === master.id;
+
+          const expText =
+            master.bio?.match(/(\d+\s*рок\w*)/i)?.[1] ||
+            (master.title.toLowerCase().includes('top') ? '4 роки' : '2 роки');
 
           return (
             <div
@@ -43,49 +47,52 @@ export const MasterList: React.FC<MasterListProps> = ({
                   onSelectMaster(master);
                 }
               }}
-              className={`p-3.5 rounded-2xl border transition-all duration-200 relative ${
+              className={`p-2.5 rounded-xl border transition-all duration-150 relative min-h-[65px] flex items-center gap-2.5 ${
                 !isCompatible
-                  ? 'opacity-50 bg-nude-bg border-nude-border/50 cursor-not-allowed'
+                  ? 'opacity-40 bg-nude-bg border-nude-border/50 cursor-not-allowed'
                   : isSelected
-                  ? 'bg-nude-accent/30 border-nude-primary shadow-sm cursor-pointer'
-                  : 'bg-nude-surface border-nude-border/80 hover:border-nude-primary/40 cursor-pointer'
+                  ? 'border-[#D4A373] bg-[#FAF6F0] shadow-xs cursor-pointer'
+                  : 'bg-nude-surface border-nude-border/80 hover:border-[#D4A373]/40 cursor-pointer'
               }`}
             >
-              <div className="flex items-start justify-between gap-2.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-nude-text">
-                      {master.name}
-                    </h3>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-nude-primary bg-nude-accent/40 px-2 py-0.5 rounded-full">
-                      <Star className="w-3 h-3 fill-nude-primary" />
-                      {master.title}
+              {/* Round Avatar with initial */}
+              <div
+                className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center font-bold text-xs shadow-inner ${
+                  isSelected
+                    ? 'bg-[#D4A373] text-white'
+                    : 'bg-nude-accent text-nude-primary'
+                }`}
+              >
+                {master.name.charAt(0)}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-nude-text truncate">
+                    {master.name}
+                  </span>
+                  {isSelected && (
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#D4A373] flex items-center justify-center text-white shrink-0">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
                     </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] font-semibold text-nude-primary bg-nude-accent/50 px-1.5 py-0.5 rounded leading-none">
+                    {master.title}
+                  </span>
+                </div>
+
+                <div className="text-[10px] text-nude-muted mt-0.5">
+                  {expText}
+                </div>
+
+                {!isCompatible && (
+                  <div className="text-[9px] text-amber-700 font-medium truncate mt-0.5">
+                    Не виконує
                   </div>
-
-                  {master.bio && (
-                    <p className="text-xs text-nude-muted mt-1.5 leading-relaxed">
-                      {master.bio}
-                    </p>
-                  )}
-
-                  {!isCompatible && (
-                    <div className="flex items-center gap-1 mt-2 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Не виконує обрану послугу</span>
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border transition-all ${
-                    isSelected
-                      ? 'bg-nude-primary border-nude-primary text-white shadow-sm'
-                      : 'border-nude-border bg-nude-bg text-transparent'
-                  }`}
-                >
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                </div>
+                )}
               </div>
             </div>
           );
