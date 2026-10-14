@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Service } from '../types';
 
 interface ServiceListProps {
@@ -12,14 +12,35 @@ export const ServiceList: React.FC<ServiceListProps> = ({
   selectedService,
   onSelectService,
 }) => {
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>(() => {
+    if (selectedService) {
+      const cat = selectedService.category_name.toLowerCase();
+      if (cat.includes('моделювання') || cat.includes('нарощування')) return 'extensions';
+      if (cat.includes('догляд') || cat.includes('add-on')) return 'care';
+      return 'complexes';
+    }
+    return 'complexes';
+  });
 
   const filterTabs = [
-    { id: 'all', label: 'Всі' },
     { id: 'complexes', label: 'Комплекси' },
     { id: 'extensions', label: 'Нарощування' },
     { id: 'care', label: 'Догляд' },
+    { id: 'all', label: 'Всі' },
   ];
+
+  useEffect(() => {
+    if (selectedService && activeCategoryFilter !== 'all') {
+      const cat = selectedService.category_name.toLowerCase();
+      if (cat.includes('моделювання') || cat.includes('нарощування')) {
+        if (activeCategoryFilter !== 'extensions') setActiveCategoryFilter('extensions');
+      } else if (cat.includes('догляд') || cat.includes('add-on')) {
+        if (activeCategoryFilter !== 'care') setActiveCategoryFilter('care');
+      } else if (cat.includes('комплекс')) {
+        if (activeCategoryFilter !== 'complexes') setActiveCategoryFilter('complexes');
+      }
+    }
+  }, [selectedService]);
 
   const filteredServices = services.filter((s) => {
     if (activeCategoryFilter === 'all') return true;

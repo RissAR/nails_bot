@@ -28,15 +28,16 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <span className="text-[10px] font-bold text-nude-primary bg-nude-accent/60 px-2 py-0.5 rounded-full border border-nude-primary/30">
+          {isAdmin ? (
+            <span className="text-[10px] font-bold text-nude-primary bg-nude-accent/60 px-2.5 py-0.5 rounded-full border border-nude-primary/30">
               Адміністратор
             </span>
-          )}
-          {userName && (
-            <div className="text-[11px] font-medium text-nude-muted bg-nude-bg px-2.5 py-0.5 rounded-full border border-nude-border truncate max-w-[120px]">
-              {userName}
-            </div>
+          ) : (
+            userName && (
+              <div className="text-[11px] font-medium text-nude-muted bg-nude-bg px-2.5 py-0.5 rounded-full border border-nude-border truncate max-w-[120px]">
+                {userName}
+              </div>
+            )
           )}
         </div>
       </div>

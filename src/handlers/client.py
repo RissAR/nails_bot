@@ -115,20 +115,17 @@ async def client_category_details_callback(
     result = await session.execute(stmt)
     services = list(result.scalars().all())
 
-    text_lines = [f"📂 <b>{category.name}</b>\n"]
+    text_lines = [f"📂 <b>{category.name}</b>"]
     if not services:
         text_lines.append("<i>У цій категорії поки немає активних послуг.</i>")
     else:
-        for idx, s in enumerate(services, 1):
-            masters_str = ", ".join(m.name for m in s.masters) if s.masters else "Всі майстри"
-            text_lines.append(
-                f"{idx}. <b>{s.name}</b>\n"
-                f"   ⏱ Тривалість: {s.duration_minutes} хв | 💰 <b>{s.price:.0f} грн</b>\n"
-                f"   📝 <i>{s.description or 'Професійний догляд'}</i>\n"
-                f"   👩‍🎨 Виконують: {masters_str}\n"
-            )
+        for s in services:
+            line = f"• <b>{s.name}</b> — {s.price:.0f} грн ({s.duration_minutes} хв)"
+            if s.description:
+                line += f"\n  <i>{s.description}</i>"
+            text_lines.append(line)
 
-    text = "\n".join(text_lines)
+    text = "\n\n".join(text_lines)
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_category_services_kb(services))
     await callback.answer()

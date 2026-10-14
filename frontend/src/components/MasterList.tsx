@@ -35,9 +35,9 @@ export const MasterList: React.FC<MasterListProps> = ({
             !selectedService || master.service_ids.includes(selectedService.id);
           const isSelected = selectedMaster?.id === master.id;
 
-          const expText =
-            master.bio?.match(/(\d+\s*рок\w*)/i)?.[1] ||
-            (master.title.toLowerCase().includes('top') ? '4 роки' : '2 роки');
+          const expText = master.title.toLowerCase().includes('top')
+            ? '4 роки досвіду'
+            : '2 роки досвіду';
 
           return (
             <div
