@@ -269,6 +269,9 @@ async def init_db() -> None:
             "reminded_24h INTEGER DEFAULT 0 NOT NULL",
             "reminded_2h INTEGER DEFAULT 0 NOT NULL",
             "admin_alerted INTEGER DEFAULT 0 NOT NULL",
+            "feedback_requested INTEGER DEFAULT 0 NOT NULL",
+            "rating INTEGER NULL",
+            "repeat_reminded INTEGER DEFAULT 0 NOT NULL",
         ]:
             col_name = col_def.split()[0]
             try:

@@ -279,6 +279,7 @@ async def confirm_booking(
                     master_name=apt.master.name if apt.master else "Майстер",
                     booking_date=apt.booking_date.strftime("%d.%m.%Y"),
                     start_time=apt.start_time.strftime("%H:%M"),
+                    end_time=apt.end_time.strftime("%H:%M"),
                 )
             except Exception:
                 pass

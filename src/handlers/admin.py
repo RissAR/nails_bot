@@ -18,6 +18,7 @@ from src.database.models.master import Master, MasterService
 from src.database.models.service import Service
 from src.database.models.user import User
 from src.filters.admin import IsAdminFilter
+from src.keyboards.client_kb import get_client_reply_kb
 from src.keyboards.admin_kb import (
     get_admin_back_kb,
     get_admin_categories_select_kb,
@@ -69,11 +70,16 @@ ADMIN_WELCOME_TEXT = (
 # 1. Main Navigation
 # =========================================================================
 
+@admin_router.message(F.text.in_({"🏠 Головне меню", "Головне меню"}))
 @admin_router.message(Command("start"))
 @admin_router.message(Command("admin"))
 async def admin_start_handler(message: Message, state: FSMContext) -> None:
-    """Handle admin /start or /admin command."""
+    """Handle admin start or main menu button."""
     await state.clear()
+    await message.answer(
+        "👋 Панель керування Sense Nail Studio",
+        reply_markup=get_client_reply_kb(),
+    )
     await message.answer(
         ADMIN_WELCOME_TEXT,
         reply_markup=get_admin_main_kb(),
@@ -872,6 +878,7 @@ async def admin_approve_booking_callback(
                 master_name=apt.master.name if apt.master else "Майстер",
                 booking_date=apt.booking_date.strftime("%d.%m.%Y"),
                 start_time=apt.start_time.strftime("%H:%M"),
+                end_time=apt.end_time.strftime("%H:%M"),
             )
         except Exception:
             pass

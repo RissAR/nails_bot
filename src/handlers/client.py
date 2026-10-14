@@ -1,11 +1,16 @@
-from aiogram import F, Router
+import html
+import logging
+from aiogram import Bot, F, Router
+from aiogram.enums import ParseMode
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.config import settings
+from src.database.models.appointment import Appointment
 from src.database.models.category import Category
 from src.database.models.master import Master
 from src.database.models.service import Service
@@ -15,7 +20,10 @@ from src.keyboards.client_kb import (
     get_category_services_kb,
     get_client_back_kb,
     get_client_main_kb,
+    get_client_reply_kb,
 )
+
+logger = logging.getLogger(__name__)
 
 client_router = Router(name="client_router")
 
@@ -41,8 +49,32 @@ CLIENT_WELCOME_TEXT = (
 
 
 @client_router.message(Command("start"))
-async def client_start_handler(message: Message, db_user: User | None = None) -> None:
+async def client_start_handler(
+    message: Message,
+    state: FSMContext | None = None,
+    db_user: User | None = None,
+) -> None:
     """Handle /start command for clients."""
+    if state:
+        await state.clear()
+    await message.answer(
+        "👋 Для швидкої навігації використовуйте кнопку «🏠 Головне меню» внизу екрана.",
+        reply_markup=get_client_reply_kb(),
+    )
+    await message.answer(
+        CLIENT_WELCOME_TEXT,
+        reply_markup=get_client_main_kb(),
+    )
+
+
+@client_router.message(F.text.in_({"🏠 Головне меню", "Головне меню"}))
+async def client_main_menu_button_handler(
+    message: Message,
+    state: FSMContext | None = None,
+) -> None:
+    """Return client to main interactive menu."""
+    if state:
+        await state.clear()
     await message.answer(
         CLIENT_WELCOME_TEXT,
         reply_markup=get_client_main_kb(),
@@ -218,4 +250,88 @@ async def client_webapp_http_warning_callback(callback: CallbackQuery) -> None:
     if callback.message:
         await callback.message.edit_text(text, reply_markup=get_client_back_kb())
     await callback.answer()
+
+
+@client_router.callback_query(F.data.startswith("fb:"))
+async def client_feedback_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    bot: Bot,
+) -> None:
+    """Handle client rating submission (NPS survey)."""
+    parts = callback.data.split(":")
+    if len(parts) != 3:
+        await callback.answer("Некоректні дані", show_alert=True)
+        return
+
+    try:
+        apt_id = int(parts[1])
+        stars = int(parts[2])
+    except ValueError:
+        await callback.answer("Помилка обробки оцінки", show_alert=True)
+        return
+
+    stmt = (
+        select(Appointment)
+        .options(
+            selectinload(Appointment.client),
+            selectinload(Appointment.service),
+            selectinload(Appointment.master),
+        )
+        .where(Appointment.id == apt_id)
+    )
+    res = await session.execute(stmt)
+    apt = res.scalar_one_or_none()
+
+    if not apt:
+        await callback.answer("Запис не знайдено", show_alert=True)
+        return
+
+    apt.rating = stars
+    await session.commit()
+
+    if stars >= 4:
+        new_text = (
+            f"🌟 <b>Щиро дякуємо за високу оцінку ({stars}/5)!</b> 💖\n\n"
+            "Нам надзвичайно приємно. Будемо раді бачити вас знову у Sense Nail Studio! ✨"
+        )
+        if callback.message:
+            await callback.message.edit_text(new_text, reply_markup=None)
+    else:
+        new_text = (
+            f"🙏 <b>Дякуємо за ваш відгук ({stars}/5).</b>\n\n"
+            "Нам дуже прикро, що щось пішло не так. Ми передали інформацію адміністратору "
+            "і зв'яжемося з вами найближчим часом, щоб виправити ситуацію!"
+        )
+        if callback.message:
+            await callback.message.edit_text(new_text, reply_markup=None)
+
+        # Notify admins
+        c_name = html.escape(apt.client.full_name if apt.client else "Клієнт")
+        c_phone = html.escape(apt.client.phone if apt.client and apt.client.phone else "—")
+        s_name = html.escape(apt.service.name if apt.service else "Послуга")
+        m_name = html.escape(apt.master.name if apt.master else "Майстер")
+        b_date_str = apt.booking_date.strftime("%d.%m.%Y")
+        s_time_str = apt.start_time.strftime("%H:%M")
+
+        alert_text = (
+            f"⚠️ <b>Низька оцінка сервісу! ({stars}/5)</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>Клієнт:</b> {c_name} ({c_phone})\n"
+            f"💅 <b>Послуга:</b> {s_name}\n"
+            f"👩‍🎨 <b>Майстер:</b> {m_name}\n"
+            f"📅 <b>Візит:</b> {b_date_str} о {s_time_str}\n\n"
+            "Будь ласка, зв'яжіться з клієнтом для відпрацювання звернення!"
+        )
+        for admin_id in settings.ADMIN_IDS:
+            try:
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text=alert_text,
+                    parse_mode=ParseMode.HTML,
+                )
+            except Exception as e:
+                logger.error("Failed to alert admin %d about low rating: %s", admin_id, e)
+
+    await callback.answer("Дякуємо за оцінку!")
 

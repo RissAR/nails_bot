@@ -31,6 +31,9 @@ class Appointment(Base, TimestampMixin):
     reminded_24h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
     reminded_2h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
     admin_alerted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    feedback_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    repeat_reminded: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
 
     client: Mapped["User"] = relationship("User", back_populates="appointments")
     master: Mapped["Master"] = relationship("Master", back_populates="appointments")

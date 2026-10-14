@@ -1,7 +1,22 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    WebAppInfo,
+)
 from src.config import settings
 from src.database.models.category import Category
 from src.database.models.service import Service
+
+
+def get_client_reply_kb() -> ReplyKeyboardMarkup:
+    """Return persistent single-button reply keyboard pinned at bottom center."""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="🏠 Головне меню")]],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
 
 
 def get_client_main_kb() -> InlineKeyboardMarkup:

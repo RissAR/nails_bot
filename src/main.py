@@ -4,7 +4,7 @@ import sys
 import uvicorn
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import MenuButtonWebApp, WebAppInfo
+from aiogram.types import MenuButtonDefault
 
 from src.bot import get_bot
 from src.api.app import app as fastapi_app
@@ -29,25 +29,12 @@ async def run_bot(bot: Bot, dp: Dispatcher) -> None:
     logger.info("Configured admins: %s", settings.ADMIN_IDS)
     logger.info("Mini App URL: %s", settings.WEBAPP_URL)
 
-    # Set native chat menu button to WebApp if HTTPS URL is configured
-    if settings.WEBAPP_URL.startswith("https://"):
-        try:
-            webapp_url = settings.get_webapp_url()
-            await bot.set_chat_menu_button(
-                menu_button=MenuButtonWebApp(
-                    text="💅 Запис",
-                    web_app=WebAppInfo(url=webapp_url),
-                )
-            )
-            logger.info("Chat menu button set to WebApp: %s", webapp_url)
-        except Exception as e:
-            logger.warning("Failed to set chat menu button: %s", e)
-    else:
-        logger.info(
-            "WEBAPP_URL is not HTTPS (%s). Telegram requires an HTTPS URL for the native chat menu button. "
-            "Configure an HTTPS tunnel (e.g. ngrok) in .env to activate the native menu button.",
-            settings.WEBAPP_URL,
-        )
+    # Reset chat menu button to default
+    try:
+        await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
+        logger.info("Chat menu button reset to default.")
+    except Exception as e:
+        logger.warning("Failed to reset chat menu button: %s", e)
 
     # Drop pending updates to avoid old messages on start
     await bot.delete_webhook(drop_pending_updates=True)

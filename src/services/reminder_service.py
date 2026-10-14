@@ -6,7 +6,8 @@ from zoneinfo import ZoneInfo
 
 from aiogram import Bot
 from aiogram.enums import ParseMode
-from sqlalchemy import select
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from src.config import settings
@@ -189,6 +190,150 @@ async def process_pending_admin_alerts(bot: Bot) -> None:
         await session.commit()
 
 
+async def process_feedback_requests(bot: Bot) -> None:
+    """Send 5-star NPS rating request to clients 2 hours after visit completion."""
+    now_kyiv = datetime.now(KYIV_TZ)
+
+    async with async_session_maker() as session:
+        stmt = (
+            select(Appointment)
+            .options(
+                selectinload(Appointment.client),
+                selectinload(Appointment.service),
+                selectinload(Appointment.master),
+            )
+            .where(
+                Appointment.status == "confirmed",
+                Appointment.feedback_requested == False,  # noqa: E712
+            )
+        )
+        appointments = (await session.execute(stmt)).scalars().all()
+
+        for apt in appointments:
+            apt_end_dt = datetime.combine(apt.booking_date, apt.end_time, tzinfo=KYIV_TZ)
+            diff = now_kyiv - apt_end_dt
+
+            if timedelta(hours=2) <= diff <= timedelta(hours=24):
+                if apt.client and apt.client.telegram_id and apt.client.telegram_id > 0:
+                    text = (
+                        "💖 <b>Дякуємо, що завітали до Sense Nail Studio!</b>\n\n"
+                        "Ми прагнемо, щоб кожен візит дарував вам відчуття комфорту та бездоганний результат.\n"
+                        "Будь ласка, оцініть якість манікюру та обслуговування від 1 до 5 зірок:"
+                    )
+                    kb = InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [
+                                InlineKeyboardButton(text="⭐ 1", callback_data=f"fb:{apt.id}:1"),
+                                InlineKeyboardButton(text="⭐ 2", callback_data=f"fb:{apt.id}:2"),
+                                InlineKeyboardButton(text="⭐ 3", callback_data=f"fb:{apt.id}:3"),
+                                InlineKeyboardButton(text="⭐ 4", callback_data=f"fb:{apt.id}:4"),
+                                InlineKeyboardButton(text="⭐ 5", callback_data=f"fb:{apt.id}:5"),
+                            ]
+                        ]
+                    )
+                    try:
+                        await bot.send_message(
+                            chat_id=apt.client.telegram_id,
+                            text=text,
+                            reply_markup=kb,
+                            parse_mode=ParseMode.HTML,
+                        )
+                        logger.info("Sent feedback survey for booking #%d to client %d", apt.id, apt.client.telegram_id)
+                    except Exception as e:
+                        logger.warning("Failed to send feedback survey for #%d to client %d: %s", apt.id, apt.client.telegram_id, e)
+
+                apt.feedback_requested = True
+            elif diff > timedelta(hours=24):
+                # Older than 24 hours, mark requested to avoid stale survey spam
+                apt.feedback_requested = True
+
+        await session.commit()
+
+
+async def process_repeat_visit_reminders(bot: Bot) -> None:
+    """Send repeat manicure reminder to clients ~21 days after previous visit (during 10:00-19:00)."""
+    now_kyiv = datetime.now(KYIV_TZ)
+    if not (10 <= now_kyiv.hour < 19):
+        return
+
+    today_kyiv = now_kyiv.date()
+
+    async with async_session_maker() as session:
+        stmt = (
+            select(Appointment)
+            .options(
+                selectinload(Appointment.client),
+                selectinload(Appointment.service),
+            )
+            .where(
+                Appointment.status == "confirmed",
+                Appointment.repeat_reminded == False,  # noqa: E712
+                Appointment.booking_date <= today_kyiv - timedelta(days=21),
+            )
+        )
+        appointments = (await session.execute(stmt)).scalars().all()
+
+        for apt in appointments:
+            if apt.booking_date < today_kyiv - timedelta(days=35):
+                # Over 5 weeks old, bypass to prevent obsolete reminder spam
+                apt.repeat_reminded = True
+                continue
+
+            # Check if client has future booking
+            has_future = await session.scalar(
+                select(func.count(Appointment.id)).where(
+                    Appointment.client_id == apt.client_id,
+                    Appointment.booking_date >= today_kyiv,
+                    Appointment.status.in_(["pending", "confirmed"]),
+                )
+            )
+            if has_future and has_future > 0:
+                apt.repeat_reminded = True
+                continue
+
+            if apt.client and apt.client.telegram_id and apt.client.telegram_id > 0:
+                c_name = html.escape(apt.client.full_name or "Клієнте")
+                text = (
+                    "💅 <b>Час оновити манікюр у Sense Nail Studio!</b> ✨\n\n"
+                    f"{c_name}, минуло вже 3 тижні з вашого попереднього візиту.\n"
+                    "Для підтримки ідеальної форми та здоров'я нігтиків рекомендується оновлювати покриття кожні 3–4 тижні.\n\n"
+                    "Оберіть зручний час для наступного візиту у нашому онлайн-записі:"
+                )
+                is_https = settings.WEBAPP_URL.startswith("https://")
+                if is_https:
+                    tma_btn = InlineKeyboardButton(
+                        text="💅 Записатися онлайн (Mini App)",
+                        web_app=WebAppInfo(url=settings.get_webapp_url()),
+                    )
+                else:
+                    tma_btn = InlineKeyboardButton(
+                        text="💅 Записатися онлайн (Mini App)",
+                        callback_data="client_webapp_http_warning",
+                    )
+
+                kb = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [tma_btn],
+                        [InlineKeyboardButton(text="🏠 Головне меню", callback_data="client_main_menu")],
+                    ]
+                )
+
+                try:
+                    await bot.send_message(
+                        chat_id=apt.client.telegram_id,
+                        text=text,
+                        reply_markup=kb,
+                        parse_mode=ParseMode.HTML,
+                    )
+                    logger.info("Sent 21-day repeat reminder for booking #%d to client %d", apt.id, apt.client.telegram_id)
+                except Exception as e:
+                    logger.warning("Failed to send 21-day repeat reminder for #%d to client %d: %s", apt.id, apt.client.telegram_id, e)
+
+            apt.repeat_reminded = True
+
+        await session.commit()
+
+
 async def check_and_send_reminders(bot: Bot) -> None:
     """Execute all periodic reminder and alert checks."""
     try:
@@ -205,6 +350,16 @@ async def check_and_send_reminders(bot: Bot) -> None:
         await process_pending_admin_alerts(bot)
     except Exception as e:
         logger.error("Error in process_pending_admin_alerts: %s", e, exc_info=True)
+
+    try:
+        await process_feedback_requests(bot)
+    except Exception as e:
+        logger.error("Error in process_feedback_requests: %s", e, exc_info=True)
+
+    try:
+        await process_repeat_visit_reminders(bot)
+    except Exception as e:
+        logger.error("Error in process_repeat_visit_reminders: %s", e, exc_info=True)
 
 
 async def run_reminder_worker(bot: Bot) -> None:
