@@ -1,382 +1,315 @@
-# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 11 — Заміна MenuButton на постійну Reply-кнопку «🏠 Головне меню» та впровадження автономних маркетингових функцій (Блок 3)
+# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 12 — Безпека API (Блок 4) та Контейнеризація Docker Compose (Блок 2)
 
 ## 1. Загальна інформація та мета етапу
 - **Мета:**
-  1. **Очищення Telegram MenuButton та додавання постійної Reply-кнопки по центру:**
-     - Прибрати з лівого нижнього кута меню Telegram кнопку «💅 Запис» (`MenuButtonWebApp`), яка створює зайвий візуальний шум і не використовується клієнтами.
-     - Замість неї встановити дефолтний стан `MenuButtonDefault()`.
-     - Додати постійну зручну кнопку `[ 🏠 Головне меню ]` по центру з самого-самого низу (`ReplyKeyboardMarkup` з параметрами `resize_keyboard=True` та `is_persistent=True`), щоб клієнт міг повернутися до головного меню в будь-який момент незалежно від попередніх дій або відкритих екранів.
-     - Для адміністратора кнопка `[ 🏠 Головне меню ]` повинна миттєво повертати в панель керування адміністратора (`ADMIN_WELCOME_TEXT` + `get_admin_main_kb()`).
-  2. **Автономні маркетингові функції та утримання клієнтів (Блок 3):**
-     - **Збір NPS / Оцінка сервісу після візиту:** Через 2 години після фактичного закінчення візиту надсилати клієнту автоматичне опитування з 5 зірками `[ ⭐ 1 ] [ ⭐ 2 ] [ ⭐ 3 ] [ ⭐ 4 ] [ ⭐ 5 ]`. Високі оцінки (4-5) — подяка; низькі оцінки (1-3) — повідомлення з вибаченням та миттєвий алерт адміністраторам для відпрацювання негативу.
-     - **Автоматичне нагадування про повторний візит (21 день):** Через 3 тижні після попереднього візиту у комфортний денний час (10:00–19:00) нагадувати клієнту про необхідність корекції/оновлення манікюру з прямою кнопкою відкриття Mini App (якщо у клієнта ще немає активного майбутнього запису).
-     - **Посилання «Додати в Google Календар»:** При підтвердженні запису генерувати інлайн-кнопку з посиланням на Google Календар із точною датою, часом процедури, назвою послуги, майстром та адресою студії.
-  3. **Перезапуск локального демона бота:**
-     - Перезапустити процес `python -m src.main` у фоновому режимі (`nohup`) та зафіксувати коректну роботу в логах.
+  1. **Безпека та фіналізація API (Блок 4):**
+     - **Криптографічна верифікація Telegram initData:** реалізувати валідацію HMAC-SHA256 підпису з перевіркою терміну дії `auth_date` (захист від підробки та replay-атак).
+     - **Адміністративна авторизація:** захистити всі ендпоінти `/api/admin/*` (`/bookings`, `/confirm`, `/reject`, `/stats`) за допомогою FastAPI dependency `verify_admin_access`. Запити від неавторизованих користувачів блокувати з `HTTP 403 Forbidden`.
+     - **Оновлення клієнта Mini App (`frontend/src/api/client.ts`):** автоматично надсилати заголовок `X-Telegram-Init-Data` у запитах до API.
+     - **Rate Limiting (Захист від спаму/DoS):** впровадити in-memory Sliding Window Rate Limiter (ліміт 5 запитів/хв для `POST /api/bookings`, 60 запитів/хв для `GET /api/slots`). Перевищення повертає `HTTP 429 Too Many Requests`.
+     - **Healthcheck ендпоінти (`GET /health` та `GET /api/health`):** перевірка статусу сервісу та з'єднання з базою даних (`SELECT 1`) для Docker-моніторингу.
+     - **Security Headers Middleware:** додати обов'язкові безпекові HTTP-заголовки (`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`).
+  2. **Контейнеризація та підготовка до деплою на Ubuntu Server (Блок 2):**
+     - **Багатоетапний `Dockerfile`:** Stage 1 — збірка фронтенду через `node:20-alpine`; Stage 2 — `python:3.12-slim` із запуском бота, API та воркерів.
+     - **`docker-compose.yaml`:** сервіс `app` із директивою `restart: always`, прокиданням порту `8000:8000`, монтуванням volume для бази даних `./data:/app/data` та бекапів `./backups:/app/backups`, завантаженням `.env` та вбудованим `healthcheck`.
+     - **`.dockerignore`:** виключення локальних файлів (`node_modules`, `.git`, `.env`, логів, баз даних) з контексту збірки.
+     - **Автономний щоденний бекап бази даних:**
+       - Внутрішній фоновий сервіс (`src/services/backup_service.py`): щоночі о 03:00 (Kyiv TZ) робить снепшот SQLite через `VACUUM INTO` у папку `backups/` з ротацією (видалення бекапів старших за 30 днів).
+       - Зовнішній bash-скрипт (`scripts/backup.sh`): для ручного запуску або crontab хост-системи.
+     - **Підтримка директорії `data/`:** автоматичне створення папки при старті в `src/database/session.py` та міграція існуючого файлу `nails_salon.db` в `./data/nails_salon.db` без втрати записів.
 - **GitHub Repository:** `https://github.com/RissAR/nails_bot.git` (гілка `main`)
-- **Стек:** Python 3.12, aiogram 3.x, SQLAlchemy 2.0 Async, SQLite.
+- **Стек:** FastAPI, Python 3.12, Docker, Docker Compose, Node.js 20, Vite, React, SQLite, aiogram 3.x.
 
 ---
 
-## 2. Суворі правила безпеки та виконання (Strict Security & Scope Discipline)
-1. **Zero Hardcoded Secrets (КРИТИЧНО):** `BOT_TOKEN` та інші конфіденційні дані зчитуються **виключно з локального `.env`**. Заборонено записувати токени у файли коду.
-2. **Zero Scope Creep:** Модифікувати тільки файли, які стосуються меню, клавіатур, нагадувань, обробників відгуків та моделі записів (`src/main.py`, `src/keyboards/client_kb.py`, `src/handlers/client.py`, `src/handlers/admin.py`, `src/services/reminder_service.py`, `src/bot.py`, `src/database/models/appointment.py`, `src/database/init_db.py`).
-3. **Збереження існуючої логіки:** Жодних заглушок (`// rest of code`). Усі існуючі обробники статусів, міграції та перевірки інтервалів зберігаються в повному обсязі.
-4. **Git Автоматизація:** Після завершення роботи виконати:
-   `git add . && git commit -m "feat: replace webapp menu button with main menu reply keyboard and add marketing automation" && git push origin main`.
+## 2. Суворі правила безпеки та дисципліни (Strict Scope Discipline)
+1. **Zero Hardcoded Secrets (КРИТИЧНО):** `BOT_TOKEN`, `ADMIN_IDS` та інші налаштування зчитуються **виключно з `.env`**. Заборонено прописувати секрети у файлах коду або `docker-compose.yaml`.
+2. **Zero Scope Creep:** Робота ведеться виключно над API-ендпоінтами, безпекою, заголовками, контейнеризацією та бекапами. Не змінювати робочу UI-логіку чи поведінку телеграм-бота.
+3. **Збереження даних:** Не видаляти діючу базу `nails_salon.db`. Якщо база знаходиться в корені — автоматично забезпечити її перенесення/копіювання в `./data/nails_salon.db`.
+4. **Git Автоматизація:** Після успішного тестування виконати:
+   `git add . && git commit -m "feat: implement API security, rate limiting, docker-compose and automated backup" && git push origin main`.
 
 ---
 
 ## 3. Деталі технічної реалізації
 
-### 3.1. Очищення MenuButton та впровадження постійної кнопки «🏠 Головне меню»
+### 3.1. БЛОК 4: Безпека API та авторизація
 
-1. **`src/main.py`:**
-   - Імпортувати `MenuButtonDefault` з `aiogram.types`.
-   - Прибрати виклик `MenuButtonWebApp(text="💅 Запис", ...)` та встановити:
-     ```python
-     try:
-         await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
-         logger.info("Chat menu button reset to default.")
-     except Exception as e:
-         logger.warning("Failed to reset chat menu button: %s", e)
-     ```
-   - Завдяки цьому з лівого нижнього кута прибирається зайва кнопка «💅 Запис».
+#### 1. Модуль криптографічної перевірки Telegram initData (`src/api/security/telegram_auth.py`):
+Створити файл `src/api/security/telegram_auth.py` з функціями:
+- `validate_telegram_init_data(init_data_raw: str, bot_token: str) -> dict | None`:
+  1. Розпарсити `init_data_raw` на параметри через `urllib.parse.parse_qsl`.
+  2. Знайти та вилучити параметр `hash`.
+  3. Відсортувати залишок пар за ключем за алфавітом.
+  4. Сформувати рядок `data_check_string = "\n".join(f"{k}={v}" for k, v in sorted_items)`.
+  5. Обчислити `secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()`.
+  6. Обчислити `calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()`.
+  7. Порівняти `calculated_hash` та `hash` через `hmac.compare_digest`.
+  8. Перевірити `auth_date`: якщо `abs(time.time() - int(auth_date)) > 86400`, вважати недійсним.
+  9. Розпарсити `user` JSON у словник з полями `id`, `first_name`, `username`.
+- FastAPI Dependency `get_current_telegram_user(request: Request, x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"), init_data: str | None = Query(None), tg_id: int | None = Query(None)) -> dict`:
+  - Якщо передано `init_data` (з заголовка або query): валідувати через `validate_telegram_init_data`.
+  - Якщо підпис коректний — повернути дані користувача (`telegram_id`, `role`).
+  - Якщо передано лише `tg_id` (для локального тестування при відсутності `initData`): дозволяти, якщо `BOT_TOKEN` не налаштовано або `tg_id in settings.ADMIN_IDS`.
+  - Інакше — повертати гостьовий контекст.
+- FastAPI Dependency `verify_admin_access(user: dict = Depends(get_current_telegram_user)) -> dict`:
+  - Перевірити: `user.get("telegram_id") in settings.ADMIN_IDS`.
+  - Якщо ні — підняти `HTTPException(status_code=403, detail="Доступ заборонено: потрібні права адміністратора.")`.
 
-2. **`src/keyboards/client_kb.py`:**
-   - Імпортувати `KeyboardButton, ReplyKeyboardMarkup` з `aiogram.types`.
-   - Створити функцію створення персистентної reply-клавіатури:
-     ```python
-     def get_client_reply_kb() -> ReplyKeyboardMarkup:
-         """Return persistent single-button reply keyboard pinned at bottom center."""
-         return ReplyKeyboardMarkup(
-             keyboard=[[KeyboardButton(text="🏠 Головне меню")]],
-             resize_keyboard=True,
-             is_persistent=True,
-         )
-     ```
+#### 2. Захист адміністративних ендпоінтів у `src/api/routes/bookings.py`:
+- Додати `dependencies=[Depends(verify_admin_access)]` або аргумент `admin_user: dict = Depends(verify_admin_access)` до ендпоінтів:
+  - `GET /admin/bookings`
+  - `PATCH /admin/bookings/{booking_id}/confirm`
+  - `PATCH /admin/bookings/{booking_id}/reject`
+  - `GET /admin/stats`
+- Тепер сторонній клієнт без валідного `initData` адміністратора не зможе переглядати конфіденційні номери телефонів чи змінювати статус записів.
 
-3. **`src/handlers/client.py`:**
-   - У `client_start_handler`:
-     При виклику `/start` клієнтом:
-     - Очистити можливий FSM стан.
-     - Надіслати коротке сервісне повідомлення для ініціалізації персистентної reply-клавіатури (або прикріпити її):
-       ```python
-       await message.answer(
-           "👋 Для швидкої навігації використовуйте кнопку «🏠 Головне меню» внизу екрана.",
-           reply_markup=get_client_reply_kb(),
-       )
-       await message.answer(
-           CLIENT_WELCOME_TEXT,
-           reply_markup=get_client_main_kb(),
-       )
-       ```
-   - Додати обробник кнопки «🏠 Головне меню»:
-     ```python
-     @client_router.message(F.text.in_({"🏠 Головне меню", "Головне меню"}))
-     async def client_main_menu_button_handler(message: Message, state: FSMContext | None = None) -> None:
-         """Return client to main interactive menu."""
-         if state:
-             await state.clear()
-         await message.answer(
-             CLIENT_WELCOME_TEXT,
-             reply_markup=get_client_main_kb(),
-         )
-     ```
+#### 3. Інтеграція `X-Telegram-Init-Data` у Frontend (`frontend/src/api/client.ts`):
+- Створити хелпер `getHeaders()`:
+  ```typescript
+  function getHeaders(contentType: boolean = false): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (contentType) headers['Content-Type'] = 'application/json';
+    const initData = window.Telegram?.WebApp?.initData;
+    if (initData) {
+      headers['X-Telegram-Init-Data'] = initData;
+    }
+    return headers;
+  }
+  ```
+- Застосувати `getHeaders()` до всіх викликів `fetch` (`getAdminBookings`, `confirmBooking`, `rejectBooking`, `getAdminStats`, `createBooking`, `getAuthMe`).
 
-4. **`src/handlers/admin.py`:**
-   - Додати перехоплення `F.text.in_({"🏠 Головне меню", "Головне меню"})` для адміністраторів:
-     ```python
-     @admin_router.message(F.text.in_({"🏠 Головне меню", "Головне меню"}))
-     @admin_router.message(Command("start"))
-     @admin_router.message(Command("admin"))
-     async def admin_start_handler(message: Message, state: FSMContext) -> None:
-         """Handle admin start or main menu button."""
-         await state.clear()
-         await message.answer(
-             "👋 Панель керування Sense Nail Studio",
-             reply_markup=get_client_reply_kb(),
-         )
-         await message.answer(
-             ADMIN_WELCOME_TEXT,
-             reply_markup=get_admin_main_kb(),
-         )
-     ```
-   - Тепер для адміністратора ця ж кнопка знизу надійно повертає до панелі адміністратора.
+#### 4. Rate Limiting (`src/api/security/rate_limiter.py`):
+Створити клас `SlidingWindowRateLimiter`:
+- Зберігає часові мітки запитів для кожного IP-адреси / `telegram_id` в пам'яті (`defaultdict(list)`).
+- Періодично очищає застарілі записи (> 60 сек).
+- Методи перевірки для використання як Dependency:
+  - `rate_limit_bookings`: максимум 5 запитів за 60 секунд на IP / клієнта.
+  - `rate_limit_slots`: максимум 60 запитів за 60 секунд на IP.
+- При перевищенні ліміту піднімати `HTTPException(status_code=429, detail="Забагато запитів. Будь ласка, зачекайте хвилину перед повторною спробою.")`.
+- Підключити `rate_limit_bookings` до `POST /api/bookings`, а `rate_limit_slots` до `GET /api/slots`.
 
----
+#### 5. Healthcheck ендпоінти (`src/api/app.py`):
+- Додати маршрути `GET /health` та `GET /api/health`:
+  ```python
+  @app.get("/health", tags=["Health"])
+  @app.get("/api/health", tags=["Health"])
+  async def healthcheck():
+      db_status = "connected"
+      try:
+          async with async_session_maker() as session:
+              await session.execute(text("SELECT 1"))
+      except Exception as e:
+          db_status = f"error: {str(e)}"
+          return JSONResponse(
+              status_code=503,
+              content={"status": "unhealthy", "database": db_status, "version": settings.APP_VERSION},
+          )
+      return {
+          "status": "healthy",
+          "database": db_status,
+          "salon": settings.SALON_NAME,
+          "version": settings.APP_VERSION,
+      }
+  ```
 
-### 3.2. Розширення моделі даних Appointment та безпечна міграція
-
-1. **`src/database/models/appointment.py`:**
-   - Додати нові колонки до моделі `Appointment`:
-     ```python
-     feedback_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
-     rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
-     repeat_reminded: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
-     ```
-
-2. **`src/database/init_db.py`:**
-   - Додати в блок безпечної автоматичної міграції для SQLite:
-     ```python
-     for col_def in [
-         "reminded_24h INTEGER DEFAULT 0 NOT NULL",
-         "reminded_2h INTEGER DEFAULT 0 NOT NULL",
-         "admin_alerted INTEGER DEFAULT 0 NOT NULL",
-         "feedback_requested INTEGER DEFAULT 0 NOT NULL",
-         "rating INTEGER NULL",
-         "repeat_reminded INTEGER DEFAULT 0 NOT NULL",
-     ]:
-         col_name = col_def.split()[0]
-         try:
-             await conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col_def}"))
-             logger.info("Migrated appointments table: added column %s", col_name)
-         except Exception:
-             pass
-     ```
+#### 6. Security Headers Middleware (`src/api/app.py`):
+- Додати мідлвар для встановлення HTTP Security Headers:
+  ```python
+  @app.middleware("http")
+  async def add_security_headers(request: Request, call_next):
+      response = await call_next(request)
+      response.headers["X-Content-Type-Options"] = "nosniff"
+      response.headers["X-Frame-Options"] = "SAMEORIGIN"
+      response.headers["X-XSS-Protection"] = "1; mode=block"
+      response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+      return response
+  ```
 
 ---
 
-### 3.3. Кнопка «📅 Додати в Google Календар»
+### 3.2. БЛОК 2: Контейнеризація та Інфраструктура (Ubuntu Server)
 
-1. **Генератор Google Calendar посилання (`src/bot.py`):**
-   - Створити допоміжну функцію:
-     ```python
-     import urllib.parse
-     from datetime import datetime, time, timedelta, timezone
-     from zoneinfo import ZoneInfo
+#### 1. Оптимізований багатоетапний `Dockerfile`:
+Створити у корені проекту `Dockerfile`:
+```dockerfile
+# Stage 1: Build Telegram Mini App (Frontend)
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
 
-     KYIV_TZ = ZoneInfo("Europe/Kyiv")
+COPY frontend/package*.json ./
+RUN npm ci
 
-     def generate_google_calendar_url(
-         service_name: str,
-         master_name: str,
-         booking_date_val: date | str,
-         start_time_val: time | str,
-         end_time_val: time | str | None = None,
-         salon_name: str = "Sense Nail Studio",
-         address: str = "м. Івано-Франківськ, вул. Січових Стрільців",
-     ) -> str:
-         # Парсинг дати та часу
-         if isinstance(booking_date_val, str):
-             b_date = datetime.strptime(booking_date_val, "%Y-%m-%d").date() if "-" in booking_date_val else datetime.strptime(booking_date_val, "%d.%m.%Y").date()
-         else:
-             b_date = booking_date_val
+COPY frontend/ ./
+RUN npm run build
 
-         if isinstance(start_time_val, str):
-             s_time = datetime.strptime(start_time_val, "%H:%M").time()
-         else:
-             s_time = start_time_val
+# Stage 2: Production Runtime (Python + SQLite)
+FROM python:3.12-slim
 
-         start_dt = datetime.combine(b_date, s_time, tzinfo=KYIV_TZ)
-         if end_time_val:
-             if isinstance(end_time_val, str):
-                 e_time = datetime.strptime(end_time_val, "%H:%M").time()
-             else:
-                 e_time = end_time_val
-             end_dt = datetime.combine(b_date, e_time, tzinfo=KYIV_TZ)
-         else:
-             end_dt = start_dt + timedelta(minutes=90)
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
 
-         start_utc = start_dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-         end_utc = end_dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+WORKDIR /app
 
-         title = urllib.parse.quote(f"💅 {service_name} — {salon_name}")
-         details = urllib.parse.quote(f"Запис до майстра {master_name}.\nСтудія: {salon_name}\nАдреса: {address}")
-         location = urllib.parse.quote(address)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
 
-         return f"https://calendar.google.com/calendar/render?action=TEMPLATE&text={title}&dates={start_utc}/{end_utc}&details={details}&location={location}"
-     ```
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-2. **Оновлення `notify_client_booking_status` (`src/bot.py`):**
-   - Додати параметр `end_time: str | None = None` у сигнатуру `notify_client_booking_status`.
-   - При `status == "confirmed"`:
-     - Згенерувати `gcal_url = generate_google_calendar_url(...)`.
-     - Сформувати `reply_markup`:
-       ```python
-       reply_markup = InlineKeyboardMarkup(
-           inline_keyboard=[
-               [
-                   InlineKeyboardButton(
-                       text="📅 Додати в Google Календар",
-                       url=gcal_url,
-                   )
-               ]
-           ]
-       )
-       ```
-     - Відправити повідомлення з цією інлайн-кнопкою.
+# Create persistent storage directories
+RUN mkdir -p /app/data /app/backups
 
-3. **Оновлення викликів `notify_client_booking_status`:**
-   - У `src/api/routes/bookings.py` (ендпоінти `confirm` та `create_booking`): передавати `end_time=apt.end_time.strftime("%H:%M")`.
-   - У `src/handlers/admin.py` (швидке підтвердження запису): передавати `end_time=apt.end_time.strftime("%H:%M")`.
+# Copy application source code
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+RUN chmod +x ./scripts/*.sh 2>/dev/null || true
 
----
+# Copy built frontend assets from Stage 1
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-### 3.4. NPS / Збір оцінки якості після візиту
+EXPOSE 8000
 
-1. **Фоновий процес опитування у `src/services/reminder_service.py`:**
-   - Створити `process_feedback_requests(bot: Bot) -> None`:
-     - Отримати поточний час у Києві: `now_kyiv = datetime.now(KYIV_TZ)`.
-     - Запит:
-       ```python
-       stmt = (
-           select(Appointment)
-           .options(
-               selectinload(Appointment.client),
-               selectinload(Appointment.service),
-               selectinload(Appointment.master),
-           )
-           .where(
-               Appointment.status == "confirmed",
-               Appointment.feedback_requested == False,  # noqa: E712
-           )
-       )
-       ```
-     - Для кожного запису:
-       - `apt_end_dt = datetime.combine(apt.booking_date, apt.end_time, tzinfo=KYIV_TZ)`
-       - `diff = now_kyiv - apt_end_dt`
-       - Якщо `timedelta(hours=2) <= diff <= timedelta(hours=24)`:
-         - Якщо у клієнта є коректний `telegram_id > 0`:
-           - Текст:
-             ```html
-             💖 <b>Дякуємо, що завітали до Sense Nail Studio!</b>
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-             Ми прагнемо, щоб кожен візит дарував вам відчуття комфорту та бездоганний результат.
-             Будь ласка, оцініть якість манікюру та обслуговування від 1 до 5 зірок:
-             ```
-           - Інлайн-клавіатура з 5 зірками:
-             ```python
-             InlineKeyboardMarkup(
-                 inline_keyboard=[
-                     [
-                         InlineKeyboardButton(text="⭐ 1", callback_data=f"fb:{apt.id}:1"),
-                         InlineKeyboardButton(text="⭐ 2", callback_data=f"fb:{apt.id}:2"),
-                         InlineKeyboardButton(text="⭐ 3", callback_data=f"fb:{apt.id}:3"),
-                         InlineKeyboardButton(text="⭐ 4", callback_data=f"fb:{apt.id}:4"),
-                         InlineKeyboardButton(text="⭐ 5", callback_data=f"fb:{apt.id}:5"),
-                     ]
-                 ]
-             )
-             ```
-           - Надіслати через `bot.send_message(..., parse_mode=ParseMode.HTML)`.
-         - Встановити `apt.feedback_requested = True`.
-       - Якщо `diff > timedelta(hours=24)` (застарілий запис):
-         - Встановити `apt.feedback_requested = True` без надсилання, щоб не спамити за старі візити.
-     - `await session.commit()`.
+CMD ["python", "-m", "src.main"]
+```
 
-2. **Обробник оцінки в `src/handlers/client.py`:**
-   - Зареєструвати обробник `callback_query(F.data.startswith("fb:"))`:
-     ```python
-     @client_router.callback_query(F.data.startswith("fb:"))
-     async def client_feedback_callback(
-         callback: CallbackQuery,
-         session: AsyncSession,
-         bot: Bot,
-     ) -> None:
-         # Парсимо apt_id та stars
-         # Зберігаємо apt.rating = stars
-         # Якщо stars >= 4:
-         #   edit_text на "🌟 Щиро дякуємо за високу оцінку ({stars}/5)! 💖\n\nНам дуже приємно. Будемо раді бачити вас знову у Sense Nail Studio! ✨"
-         # Якщо stars <= 3:
-         #   edit_text на "Дякуємо за ваш відгук ({stars}/5). 🙏\nНам прикро, що щось пішло не так. Ми зв'яжемося з вами найближчим часом, щоб виправити ситуацію!"
-         #   надіслати сповіщення адміністраторам settings.ADMIN_IDS про низьку оцінку з контактами клієнта
-     ```
+#### 2. Файл `docker-compose.yaml`:
+Створити у корені проекту `docker-compose.yaml`:
+```yaml
+version: '3.8'
 
----
+services:
+  sense_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sense_nail_bot
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+```
 
-### 3.5. Автоматичне нагадування про повторний візит (21 день)
+#### 3. Файл `.dockerignore`:
+Створити у корені проекту `.dockerignore`:
+```text
+.git
+.github
+.agents
+.env
+*.log
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+node_modules
+frontend/node_modules
+data/*.db
+backups/*.db
+nails_salon.db
+app.log
+cloudflared.log
+```
 
-1. **Фоновий процес нагадування у `src/services/reminder_service.py`:**
-   - Створити `process_repeat_visit_reminders(bot: Bot) -> None`:
-     - Перевірити годину: надсилати виключно в денний проміжок `10:00 <= now_kyiv.hour < 19:00`. Якщо ні — виходити.
-     - `today_kyiv = now_kyiv.date()`
-     - Запит:
-       ```python
-       stmt = (
-           select(Appointment)
-           .options(
-               selectinload(Appointment.client),
-               selectinload(Appointment.service),
-           )
-           .where(
-               Appointment.status == "confirmed",
-               Appointment.repeat_reminded == False,  # noqa: E712
-               Appointment.booking_date <= today_kyiv - timedelta(days=21),
-           )
-       )
-       ```
-     - Для кожного запису:
-       - Якщо `apt.booking_date < today_kyiv - timedelta(days=35)`:
-         # Запис надто старий (> 5 тижнів), спамити не потрібно
-         `apt.repeat_reminded = True`
-         `continue`
-       - Перевірити, чи має клієнт вже майбутній запис (`booking_date >= today_kyiv` зі статусом `pending` або `confirmed`):
-         ```python
-         has_future = await session.scalar(
-             select(func.count(Appointment.id)).where(
-                 Appointment.client_id == apt.client_id,
-                 Appointment.booking_date >= today_kyiv,
-                 Appointment.status.in_(["pending", "confirmed"]),
-             )
-         )
-         if has_future and has_future > 0:
-             apt.repeat_reminded = True
-             continue
-         ```
-       - Якщо майбутнього запису немає і `apt.client.telegram_id > 0`:
-         - Текст:
-           ```html
-           💅 <b>Час оновити манікюр у Sense Nail Studio!</b> ✨
+#### 4. Автоматичний щоденний бекап бази даних:
+- **Внутрішній автономний воркер (`src/services/backup_service.py`):**
+  - Функція `run_backup_worker()`:
+    - Працює у нескінченному циклі з перевіркою щогодини.
+    - О 03:00 ночі (Kyiv TZ) виконує безпечний бекап поточної SQLite бази даних.
+    - Шлях збереження: `backups/nails_salon_YYYYMMDD_030000.db`.
+    - Для створення бекапу викликати SQLite команду `VACUUM INTO '<шлях>'` через `session.execute(text(...))` або `sqlite3.connect().backup()`. Це гарантує 100% консистентність без блокування читання/запису.
+    - Ротація: перевіряє папку `backups/` та видаляє файли старші за 30 днів.
+    - Логує результат створення та очищення.
+  - Додати `run_backup_worker()` в `asyncio.gather(...)` у `src/main.py`.
+- **Зовнішній bash-скрипт (`scripts/backup.sh`):**
+  - Створити `scripts/backup.sh`:
+    ```bash
+    #!/usr/bin/env bash
+    set -euo pipefail
 
-           {c_name}, минуло вже 3 тижні з вашого попереднього візиту.
-           Для підтримки ідеальної форми та здоров'я нігтиків рекомендується оновлювати покриття кожні 3–4 тижні.
+    BACKUP_DIR="${BACKUP_DIR:-./backups}"
+    DB_PATH="${DB_PATH:-./data/nails_salon.db}"
+    mkdir -p "$BACKUP_DIR"
 
-           Оберіть зручний час для наступного візиту у нашому онлайн-записі:
-           ```
-         - Інлайн-кнопки:
-           `[ 💅 Записатися онлайн (Mini App) ]` (з WebApp URL)
-           `[ 🏠 Головне меню ]`
-         - Відправити клієнту повідомлення.
-         - Встановити `apt.repeat_reminded = True`.
-     - `await session.commit()`.
+    if [ ! -f "$DB_PATH" ]; then
+      if [ -f "./nails_salon.db" ]; then
+        DB_PATH="./nails_salon.db"
+      else
+        echo "Database file not found at $DB_PATH or ./nails_salon.db"
+        exit 1
+      fi
+    fi
 
-2. **Підключення до воркера:**
-   - У `check_and_send_reminders(bot: Bot)` додати виклики:
-     - `await process_feedback_requests(bot)`
-     - `await process_repeat_visit_reminders(bot)`
+    TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+    BACKUP_FILE="$BACKUP_DIR/nails_salon_${TIMESTAMP}.db"
 
----
+    sqlite3 "$DB_PATH" ".backup '$BACKUP_FILE'"
+    echo "Backup created successfully: $BACKUP_FILE"
 
-### 3.6. Перезапуск демона та перевірка
+    # Ротація (видалення бекапів старших за 30 днів)
+    find "$BACKUP_DIR" -type f -name "nails_salon_*.db" -mtime +30 -delete
+    echo "Old backups (>30 days) cleaned up."
+    ```
+  - Надати права: `chmod +x scripts/backup.sh`.
 
-1. Зупинити попередній процес:
-   ```bash
-   pkill -f "python -m src.main"
-   ```
-2. Запустити оновлений бекенд у фоні:
-   ```bash
-   nohup python -m src.main > app.log 2>&1 &
-   ```
-3. Перевірити, що процес запущений:
-   ```bash
-   pgrep -af "python -m src.main"
-   ```
-4. Перевірити останні логи `app.log` на відсутність помилок ініціалізації та успішну міграцію колонок.
+#### 5. Адаптація шляхів бази даних (`src/database/session.py` та `src/config.py`):
+- У `src/config.py`:
+  - Встановити `DATABASE_URL: str = "sqlite+aiosqlite:///./data/nails_salon.db"`.
+- У `src/database/session.py` (перед створенням engine або при старті):
+  - Якщо вказано шлях до бази з каталогом (наприклад, `./data/nails_salon.db`):
+    - Створити каталог `os.makedirs(db_dir, exist_ok=True)`.
+    - Якщо `./nails_salon.db` існує в корені, а `./data/nails_salon.db` ще не існує — автоматично скопіювати/перемістити існуючу базу в `./data/nails_salon.db`, зберігаючи всі існуючі записи клієнтів.
+- Оновити `.env.example`:
+  ```ini
+  BOT_TOKEN=your_bot_token_here
+  ADMIN_IDS=[8607080614]
+  ADMIN_USERNAME=@andriy_bot_dev
+  DATABASE_URL=sqlite+aiosqlite:///./data/nails_salon.db
+  SALON_NAME=Sense Nail Studio
+  WEBAPP_URL=http://localhost:8000/app
+  API_HOST=0.0.0.0
+  API_PORT=8000
+  APP_VERSION=1.0.1
+  ```
 
 ---
 
 ## 4. Критерії приймання та валідація (Acceptance Criteria)
-1. У Telegram боті відсутня стара кнопка «💅 Запис» у лівому нижньому куті (`MenuButtonWebApp` знято).
-2. У нижній частині екрана по центру закріплена постійна зручна кнопка `[ 🏠 Головне меню ]` (`is_persistent=True`), яка коректно повертає користувача до головного меню (для клієнта — вітальне меню клієнта; для адміна — адмін-панель).
-3. У моделі `Appointment` присутні нові поля: `feedback_requested`, `rating`, `repeat_reminded`, а автоматична SQLite міграція в `init_db.py` додає їх без втрати даних.
-4. При підтвердженні запису надсилається інлайн-кнопка «📅 Додати в Google Календар» з точним посиланням на Google Календар.
-5. Автономний воркер через 2 години після закінчення візиту надсилає 5 зірок для оцінки, обробляє колбек (подяка при 4-5 зірках, алерт адміну при 1-3 зірках).
-6. Автономний воркер через 21 день пропонує клієнту оновити манікюр (якщо немає активного майбутнього запису).
-7. Демон `python -m src.main` працює у фоновому режимі без помилок.
-8. Усі зміни закомічені та відправлені на GitHub:
-   ```bash
-   git add .
-   git commit -m "feat: replace webapp menu button with main menu reply keyboard and add marketing automation"
-   git push origin main
-   ```
+1. Ендпоінти `/api/admin/*` повертають `HTTP 403 Forbidden`, якщо запит надіслано без валідного підпису Telegram `initData` адміністратора (або некоректного `tg_id` у dev-режимі).
+2. Запит з валідним `initData` адміністратора успішно проходить перевірку HMAC-SHA256 та отримує доступ до даних.
+3. Ендпоінт `POST /api/bookings` захищено Rate Limiter (при спробі надіслати понад 5 запитів за 60 секунд повертається `HTTP 429 Too Many Requests`).
+4. Ендпоінти `GET /health` та `GET /api/health` повертають `HTTP 200` з JSON-статусом підключення до бази даних.
+5. Усі відповіді API містять захисні HTTP-заголовки (`X-Content-Type-Options: nosniff` тощо).
+6. Фронтенд `frontend/src/api/client.ts` автоматично передає заголовок `X-Telegram-Init-Data`.
+7. `Dockerfile` успішно збирає образ (Node 20 Vite build + Python 3.12 runtime) без помилок.
+8. `docker-compose.yaml` коректно валідується (`podman compose config` / `docker compose config`) і налаштований з `restart: always` та збереженням `./data` і `./backups`.
+9. Скрипт `scripts/backup.sh` виконується з кодом 0 та створює консистентний бекап у папці `backups/`.
+10. Внутрішній бекап-сервіс `backup_service.py` успішно підключений до головного циклу `main.py`.
+11. Зміни закомічені та відправлені до репозиторію:
+    ```bash
+    git add .
+    git commit -m "feat: implement API security, rate limiting, docker-compose and automated backup"
+    git push origin main
+    ```
