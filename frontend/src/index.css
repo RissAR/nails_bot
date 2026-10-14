@@ -9,6 +9,7 @@
 body {
   margin: 0;
   padding: 0;
+  background: radial-gradient(circle at 50% 0%, #FDF9F5 0%, #F5ECE3 50%, #ECE0D2 100%) fixed;
   background-color: #F4ECE4;
   color: #231E1B;
   -webkit-tap-highlight-color: transparent;
@@ -32,4 +33,52 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #C28751;
+}
+
+/* Utility classes for Silk & Caramel tactile design */
+
+/* Керамічна картка (звичайний стан) */
+.card-ceramic {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAF5EE 100%);
+  box-shadow: 0 4px 16px rgba(60, 40, 25, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(228, 216, 204, 0.7);
+}
+
+/* Керамічна картка (активний / обраний стан) */
+.card-ceramic-active {
+  background: linear-gradient(180deg, #FFFDFB 0%, #F6ECE0 100%);
+  box-shadow: 0 8px 24px rgba(194, 135, 81, 0.16), inset 0 1px 0 rgba(255, 255, 255, 1);
+  border: 1.5px solid #C28751;
+}
+
+/* Тактильна кнопка дії Карамель (3D Bevel & Ambient Shadow) */
+.btn-caramel-3d {
+  background: linear-gradient(180deg, #D49660 0%, #B7763B 100%);
+  box-shadow: 0 6px 18px rgba(183, 118, 59, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.btn-caramel-3d:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(183, 118, 59, 0.25), inset 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Активний таб / чіпс */
+.chip-active-3d {
+  background: linear-gradient(180deg, #D49660 0%, #B7763B 100%);
+  box-shadow: 0 3px 10px rgba(183, 118, 59, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* Ефект матового скла (Frosted Glass) для шапки та закріпленого доку */
+.glass-nav {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(250, 247, 242, 0.85);
+  border-bottom: 1px solid rgba(228, 216, 204, 0.6);
+}
+
+.glass-dock {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(250, 247, 242, 0.88);
+  border-top: 1px solid rgba(228, 216, 204, 0.7);
+  box-shadow: 0 -8px 24px rgba(60, 40, 25, 0.06);
 }

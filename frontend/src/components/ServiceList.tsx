@@ -69,10 +69,10 @@ export const ServiceList: React.FC<ServiceListProps> = ({
             key={tab.id}
             type="button"
             onClick={() => setActiveCategoryFilter(tab.id)}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
               activeCategoryFilter === tab.id
-                ? 'bg-nude-primary text-white shadow-xs'
-                : 'bg-nude-surface text-nude-muted border border-nude-border hover:text-nude-text'
+                ? 'chip-active-3d text-white shadow-xs'
+                : 'card-ceramic text-nude-muted hover:text-nude-text'
             }`}
           >
             {tab.label}
@@ -89,10 +89,10 @@ export const ServiceList: React.FC<ServiceListProps> = ({
             <div
               key={service.id}
               onClick={() => onSelectService(service)}
-              className={`py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-pointer shadow-card ${
+              className={`py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-pointer ${
                 isSelected
-                  ? 'border-nude-primary bg-nude-accent/30'
-                  : 'bg-nude-surface border-nude-border hover:border-nude-primary/40'
+                  ? 'card-ceramic-active'
+                  : 'card-ceramic hover:border-nude-primary/50'
               }`}
             >
               {/* Upper row: Radio + Name on left, duration + price on right */}
@@ -101,7 +101,7 @@ export const ServiceList: React.FC<ServiceListProps> = ({
                   <div
                     className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
                       isSelected
-                        ? 'border-nude-primary bg-nude-primary'
+                        ? 'border-[#C28751] bg-gradient-to-br from-[#D49660] to-[#B7763B] shadow-xs'
                         : 'border-nude-border bg-nude-bg'
                     }`}
                   >

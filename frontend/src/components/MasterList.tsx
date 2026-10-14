@@ -47,20 +47,20 @@ export const MasterList: React.FC<MasterListProps> = ({
                   onSelectMaster(master);
                 }
               }}
-              className={`p-2.5 rounded-xl border transition-all duration-150 relative min-h-[65px] flex items-center gap-2.5 shadow-card ${
+              className={`p-2.5 rounded-xl border transition-all duration-150 relative min-h-[65px] flex items-center gap-2.5 ${
                 !isCompatible
                   ? 'opacity-40 bg-nude-bg border-nude-border/50 cursor-not-allowed'
                   : isSelected
-                  ? 'border-nude-primary bg-nude-accent/30 cursor-pointer'
-                  : 'bg-nude-surface border-nude-border hover:border-nude-primary/40 cursor-pointer'
+                  ? 'card-ceramic-active cursor-pointer'
+                  : 'card-ceramic hover:border-nude-primary/50 cursor-pointer'
               }`}
             >
               {/* Round Avatar with initial */}
               <div
                 className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center font-bold text-xs shadow-inner ${
                   isSelected
-                    ? 'bg-nude-primary text-white'
-                    : 'bg-nude-accent text-nude-primary'
+                    ? 'bg-gradient-to-br from-[#D49660] to-[#B7763B] text-white shadow-sm'
+                    : 'bg-gradient-to-br from-[#FAF5EE] to-[#EBD9C8] text-nude-primary border border-nude-border/60'
                 }`}
               >
                 {master.name.charAt(0)}
@@ -72,7 +72,7 @@ export const MasterList: React.FC<MasterListProps> = ({
                     {master.name}
                   </span>
                   {isSelected && (
-                    <span className="w-3.5 h-3.5 rounded-full bg-nude-primary flex items-center justify-center text-white shrink-0">
+                    <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#D49660] to-[#B7763B] flex items-center justify-center text-white shrink-0 shadow-xs">
                       <Check className="w-2.5 h-2.5 stroke-[3]" />
                     </span>
                   )}

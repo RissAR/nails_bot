@@ -86,19 +86,19 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
                 triggerHaptic();
                 onSelectDate(item.dateStr);
               }}
-              className={`flex flex-col items-center justify-center min-w-[54px] py-2 px-1 rounded-2xl border transition-all duration-200 shrink-0 shadow-card ${
+              className={`flex flex-col items-center justify-center min-w-[54px] py-2 px-1 rounded-2xl border transition-all duration-200 shrink-0 ${
                 isSelected
-                  ? 'bg-nude-primary text-white border-nude-primary scale-[1.02]'
-                  : 'bg-nude-surface text-nude-muted border-nude-border hover:border-nude-primary/40'
+                  ? 'btn-caramel-3d text-white font-bold scale-[1.02] border-transparent'
+                  : 'card-ceramic text-nude-text hover:border-nude-primary/40'
               }`}
             >
-              <span className={`text-[10px] uppercase font-bold ${isSelected ? 'text-white/80' : 'text-nude-muted'}`}>
+              <span className={`text-[10px] uppercase font-bold ${isSelected ? 'text-white/90' : 'text-nude-muted'}`}>
                 {item.dayOfWeek}
               </span>
               <span className={`text-base font-extrabold my-0.5 ${isSelected ? 'text-white' : 'text-nude-text'}`}>
                 {item.dayOfMonth}
               </span>
-              <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-nude-muted/80'}`}>
+              <span className={`text-[10px] ${isSelected ? 'text-white/90' : 'text-nude-muted/80'}`}>
                 {item.monthName}
               </span>
             </button>
@@ -107,7 +107,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
       </div>
 
       {/* Time slots */}
-      <div className="bg-nude-surface rounded-2xl border border-nude-border p-3.5 space-y-2.5 shadow-card">
+      <div className="card-ceramic rounded-2xl p-3.5 space-y-2.5">
         <div className="flex items-center justify-between text-xs text-nude-muted">
           <span className="flex items-center gap-1 font-medium">
             <Clock className="w-3.5 h-3.5 text-nude-primary" />
@@ -147,8 +147,8 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
                   }}
                   className={`py-2 px-1 rounded-xl text-xs font-bold transition-all duration-150 border text-center ${
                     isSelected
-                      ? 'bg-nude-primary text-white border-nude-primary shadow-card scale-105'
-                      : 'bg-nude-bg text-nude-text border-nude-border hover:border-nude-primary/60'
+                      ? 'btn-caramel-3d text-white font-bold shadow-sm border-transparent scale-105'
+                      : 'card-ceramic text-nude-text hover:border-nude-primary/50'
                   }`}
                 >
                   {slot}

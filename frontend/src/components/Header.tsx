@@ -11,10 +11,10 @@ export const Header: React.FC<HeaderProps> = ({
   userName,
 }) => {
   return (
-    <header className="bg-nude-surface border-b border-nude-border px-3.5 py-2 sticky top-0 z-30 shadow-sm">
+    <header className="glass-nav px-3.5 py-2 sticky top-0 z-30 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-nude-accent flex items-center justify-center text-nude-primary font-bold shadow-inner">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FAF5EE] to-[#EBD9C8] border border-[#C28751]/20 flex items-center justify-center text-nude-primary font-bold shadow-inner">
             <Sparkles className="w-4 h-4 text-nude-primary" />
           </div>
           <div>

@@ -129,7 +129,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
       <div
-        className="bg-nude-surface w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-nude-border shadow-card-active overflow-hidden max-h-[90vh] flex flex-col"
+        className="bg-gradient-to-b from-[#FFFFFF] to-[#FAF5EE] w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-nude-border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -319,7 +319,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting || !isFormValid}
-                className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-nude-primary text-white hover:bg-nude-primaryHover disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-3 px-4 rounded-xl font-bold text-sm btn-caramel-3d text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>

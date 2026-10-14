@@ -72,7 +72,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           type="button"
           onClick={onRefresh}
           disabled={isLoading}
-          className="p-2 rounded-xl bg-nude-surface border border-nude-border text-nude-muted hover:text-nude-primary transition-all disabled:opacity-50"
+          className="p-2 rounded-xl card-ceramic text-nude-muted hover:text-nude-primary transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
@@ -80,7 +80,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
+        <div className="card-ceramic p-3 rounded-2xl">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Нові заявки</span>
             <Bell className="w-3.5 h-3.5 text-amber-500" />
@@ -93,7 +93,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
 
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
+        <div className="card-ceramic p-3 rounded-2xl">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Сьогодні</span>
             <Calendar className="w-3.5 h-3.5 text-nude-primary" />
@@ -106,7 +106,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
 
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
+        <div className="card-ceramic p-3 rounded-2xl">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Оборот</span>
             <DollarSign className="w-3.5 h-3.5 text-nude-green" />
@@ -119,7 +119,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
 
-        <div className="bg-nude-surface p-3 rounded-2xl border border-nude-border shadow-card">
+        <div className="card-ceramic p-3 rounded-2xl">
           <div className="flex items-center justify-between text-nude-muted">
             <span className="text-[11px] font-semibold">Клієнти</span>
             <Users className="w-3.5 h-3.5 text-nude-muted" />
@@ -134,7 +134,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Masters on shift preview */}
-      <div className="bg-nude-surface p-3.5 rounded-2xl border border-nude-border shadow-card space-y-2">
+      <div className="card-ceramic p-3.5 rounded-2xl space-y-2">
         <h3 className="text-xs font-bold text-nude-text flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-nude-primary" />
           Команда майстрів студії
@@ -164,7 +164,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {pendingBookings.length === 0 ? (
-          <div className="p-8 text-center bg-nude-surface rounded-2xl border border-nude-border text-nude-muted shadow-card">
+          <div className="card-ceramic p-8 text-center rounded-2xl text-nude-muted">
             <AlertCircle className="w-8 h-8 mx-auto mb-2 text-nude-muted/50" />
             <p className="text-xs font-bold text-nude-text">Нових заявок немає</p>
             <p className="text-[11px] text-nude-muted mt-0.5">Всі записи оброблено або очікується нове бронювання від клієнтів</p>
@@ -174,7 +174,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {pendingBookings.map((b) => (
               <div
                 key={b.id}
-                className="bg-nude-surface p-3.5 rounded-2xl border border-amber-200/80 shadow-card relative space-y-2"
+                className="card-ceramic p-3.5 rounded-2xl border-amber-300/80 relative space-y-2"
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -225,7 +225,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     type="button"
                     disabled={processingId === b.id}
                     onClick={() => handleAction(b.id, 'confirm')}
-                    className="flex-1 py-2 px-3 rounded-xl bg-nude-greenLight text-nude-green font-bold text-xs hover:bg-nude-greenLight/80 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                    className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-b from-[#EBF3ED] to-[#D8E6DB] border border-nude-green/30 text-nude-green font-bold text-xs hover:shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                   >
                     {processingId === b.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -238,7 +238,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     type="button"
                     disabled={processingId === b.id}
                     onClick={() => handleAction(b.id, 'reject')}
-                    className="flex-1 py-2 px-3 rounded-xl bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                    className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-b from-[#FFF5F5] to-[#FEE2E2] border border-red-200 text-red-600 font-bold text-xs hover:shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                   >
                     {processingId === b.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
