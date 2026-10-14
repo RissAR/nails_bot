@@ -1,14 +1,15 @@
 from datetime import date, datetime, time, timedelta
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 
+from src.api.security import rate_limit_slots
 from src.database.models import Appointment, Master, Schedule, Service
 from src.database.session import async_session_maker
 
 router = APIRouter(prefix="/slots", tags=["Slots"])
 
 
-@router.get("", response_model=list[str])
+@router.get("", response_model=list[str], dependencies=[Depends(rate_limit_slots)])
 async def get_free_slots(
     master_id: int = Query(..., description="Master ID"),
     date_str: str = Query(..., alias="date", description="Date YYYY-MM-DD"),

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from src.api.security import validate_telegram_init_data
 from src.config import settings
 from src.database.models import User
 from src.database.session import async_session_maker
@@ -33,16 +34,11 @@ async def get_current_user(
 
     raw_init_data = init_data or x_telegram_init_data
     if raw_init_data:
-        try:
-            parsed = parse_qs(raw_init_data)
-            if "user" in parsed:
-                user_json = unquote(parsed["user"][0])
-                user_obj = json.loads(user_json)
-                resolved_tg_id = user_obj.get("id")
-                first_name = user_obj.get("first_name")
-                username = user_obj.get("username")
-        except Exception:
-            pass
+        val = validate_telegram_init_data(raw_init_data, settings.BOT_TOKEN)
+        if val:
+            resolved_tg_id = val.get("telegram_id")
+            first_name = val.get("first_name")
+            username = val.get("username")
 
     if resolved_tg_id is None:
         return UserAuthResponse(

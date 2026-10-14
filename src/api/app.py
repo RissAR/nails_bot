@@ -1,15 +1,18 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from src.api.routes import auth, bookings, masters, services, slots
+from src.config import settings
+from src.database.session import async_session_maker
 
 app = FastAPI(
     title="Sense Nail Studio API",
     description="REST API for Sense Nail Studio Telegram Mini App",
-    version="1.0.0",
+    version=settings.APP_VERSION,
 )
 
 # CORS Middleware
@@ -21,6 +24,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Enforce standard security HTTP headers."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 # Include API Routers under /api
 api_router = FastAPI()
 app.include_router(services.router, prefix="/api")
@@ -28,6 +43,32 @@ app.include_router(masters.router, prefix="/api")
 app.include_router(slots.router, prefix="/api")
 app.include_router(bookings.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+
+
+@app.get("/health", tags=["Health"])
+@app.get("/api/health", tags=["Health"])
+async def healthcheck():
+    """Health check endpoint verifying database connectivity and service health."""
+    db_status = "connected"
+    try:
+        async with async_session_maker() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": db_status,
+                "version": settings.APP_VERSION,
+            },
+        )
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "salon": settings.SALON_NAME,
+        "version": settings.APP_VERSION,
+    }
 
 
 @app.get("/", include_in_schema=False)

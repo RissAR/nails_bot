@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     BOT_TOKEN: str = ""
     ADMIN_IDS: list[int] = []
     ADMIN_USERNAME: str = ""
-    DATABASE_URL: str = "sqlite+aiosqlite:///./nails_salon.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/nails_salon.db"
     SALON_NAME: str = "Sense Nail Studio"
     WEBAPP_URL: str = "http://localhost:8000/app"
     API_HOST: str = "0.0.0.0"

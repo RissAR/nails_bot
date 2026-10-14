@@ -1,0 +1,17 @@
+.git
+.github
+.agents
+.env
+*.log
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+node_modules
+frontend/node_modules
+data/*.db
+backups/*.db
+nails_salon.db
+app.log
+cloudflared.log

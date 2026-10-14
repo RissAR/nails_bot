@@ -11,21 +11,31 @@ import {
 
 const API_BASE = '/api';
 
+function getHeaders(contentType: boolean = false): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (contentType) headers['Content-Type'] = 'application/json';
+  const initData = (window as any).Telegram?.WebApp?.initData;
+  if (initData) {
+    headers['X-Telegram-Init-Data'] = initData;
+  }
+  return headers;
+}
+
 export const api = {
   async getServices(): Promise<Service[]> {
-    const res = await fetch(`${API_BASE}/services`);
+    const res = await fetch(`${API_BASE}/services`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Помилка завантаження послуг');
     return res.json();
   },
 
   async getCategories(): Promise<Category[]> {
-    const res = await fetch(`${API_BASE}/services/categories`);
+    const res = await fetch(`${API_BASE}/services/categories`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Помилка завантаження категорій');
     return res.json();
   },
 
   async getMasters(): Promise<Master[]> {
-    const res = await fetch(`${API_BASE}/masters`);
+    const res = await fetch(`${API_BASE}/masters`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Помилка завантаження майстрів');
     return res.json();
   },
@@ -36,7 +46,7 @@ export const api = {
       date,
       service_id: serviceId.toString(),
     });
-    const res = await fetch(`${API_BASE}/slots?${params.toString()}`);
+    const res = await fetch(`${API_BASE}/slots?${params.toString()}`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Помилка завантаження вільних слотів');
     return res.json();
   },
@@ -44,7 +54,7 @@ export const api = {
   async createBooking(payload: BookingPayload): Promise<BookingResult> {
     const res = await fetch(`${API_BASE}/bookings`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(true),
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -57,7 +67,7 @@ export const api = {
   },
 
   async getAdminBookings(): Promise<AdminBooking[]> {
-    const res = await fetch(`${API_BASE}/admin/bookings`);
+    const res = await fetch(`${API_BASE}/admin/bookings`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Помилка завантаження заявок');
     return res.json();
   },
@@ -65,6 +75,7 @@ export const api = {
   async confirmBooking(id: number): Promise<AdminBooking> {
     const res = await fetch(`${API_BASE}/admin/bookings/${id}/confirm`, {
       method: 'PATCH',
+      headers: getHeaders(),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -76,6 +87,7 @@ export const api = {
   async rejectBooking(id: number): Promise<AdminBooking> {
     const res = await fetch(`${API_BASE}/admin/bookings/${id}/reject`, {
       method: 'PATCH',
+      headers: getHeaders(),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -85,7 +97,7 @@ export const api = {
   },
 
   async getAdminStats(): Promise<AdminStats> {
-    const res = await fetch(`${API_BASE}/admin/stats`);
+    const res = await fetch(`${API_BASE}/admin/stats`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Помилка завантаження статистики');
     return res.json();
   },
@@ -95,7 +107,7 @@ export const api = {
     if (initData) params.append('init_data', initData);
     if (tgId) params.append('tg_id', tgId.toString());
 
-    const res = await fetch(`${API_BASE}/auth/me?${params.toString()}`);
+    const res = await fetch(`${API_BASE}/auth/me?${params.toString()}`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Помилка авторизації');
     return res.json();
   },

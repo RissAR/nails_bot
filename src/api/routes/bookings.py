@@ -2,11 +2,12 @@ import asyncio
 from datetime import date, datetime, time, timedelta
 import html
 import re
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from src.api.security import rate_limit_bookings, verify_admin_access
 from src.bot import notify_admins_new_booking, notify_client_booking_status
 from src.database.models import Appointment, Master, Service, User
 from src.database.session import async_session_maker
@@ -80,7 +81,7 @@ class AdminStatsResponse(BaseModel):
     total_clients: int
 
 
-@router.post("/bookings", response_model=BookingResponse)
+@router.post("/bookings", response_model=BookingResponse, dependencies=[Depends(rate_limit_bookings)])
 async def create_booking(payload: BookingCreateRequest) -> BookingResponse:
     """Create a new booking appointment with validation and admin notification."""
     try:
@@ -205,7 +206,9 @@ async def create_booking(payload: BookingCreateRequest) -> BookingResponse:
 
 
 @router.get("/admin/bookings", response_model=list[AdminBookingItem])
-async def get_admin_bookings() -> list[AdminBookingItem]:
+async def get_admin_bookings(
+    admin_user: dict = Depends(verify_admin_access),
+) -> list[AdminBookingItem]:
     """Return all appointments with client and service details for admin."""
     async with async_session_maker() as session:
         stmt = (
@@ -243,6 +246,7 @@ async def get_admin_bookings() -> list[AdminBookingItem]:
 @router.patch("/admin/bookings/{booking_id}/confirm", response_model=AdminBookingItem)
 async def confirm_booking(
     booking_id: int = Path(..., description="ID запису"),
+    admin_user: dict = Depends(verify_admin_access),
 ) -> AdminBookingItem:
     """Confirm an appointment and notify the client in Telegram."""
     async with async_session_maker() as session:
@@ -305,6 +309,7 @@ async def confirm_booking(
 async def reject_booking(
     booking_id: int = Path(..., description="ID запису"),
     reason: str | None = Query(None, description="Причина відхилення"),
+    admin_user: dict = Depends(verify_admin_access),
 ) -> AdminBookingItem:
     """Reject an appointment and notify the client in Telegram."""
     async with async_session_maker() as session:
@@ -361,7 +366,9 @@ async def reject_booking(
 
 
 @router.get("/admin/stats", response_model=AdminStatsResponse)
-async def get_admin_stats() -> AdminStatsResponse:
+async def get_admin_stats(
+    admin_user: dict = Depends(verify_admin_access),
+) -> AdminStatsResponse:
     """Return key metrics and counters for admin panel."""
     today = date.today()
     async with async_session_maker() as session:

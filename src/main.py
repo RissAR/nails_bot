@@ -12,6 +12,7 @@ from src.config import settings
 from src.database import init_db
 from src.handlers import admin_router, client_router, common_router
 from src.middlewares import AuthMiddleware
+from src.services.backup_service import run_backup_worker
 from src.services.reminder_service import run_reminder_worker
 
 logging.basicConfig(
@@ -77,6 +78,7 @@ async def main() -> None:
             run_api(),
             run_bot(bot, dp),
             run_reminder_worker(bot),
+            run_backup_worker(),
         )
     finally:
         await bot.session.close()
