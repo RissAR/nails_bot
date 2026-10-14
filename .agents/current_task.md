@@ -1,146 +1,132 @@
-# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 9 — Захист від подвійного бронювання (Race Condition Lock) та Автоматичні нагадування про візит
+# ТЕХНІЧНЕ ЗАВДАННЯ: Етап 10 (Блок 1) — Доопрацювання UI/UX, Рефакторинг каталогу в боті та запуск локального демона з Cloudflare-тунелем
 
 ## 1. Загальна інформація та мета етапу
 - **Мета:**
-  1. **Race Condition Lock (Захист від подвійного бронювання):** Гарантувати, що двоє клієнтів не зможуть одночасно забронювати один і той самий таймслот у одного майстра. Якщо виникає конфлікт у мілісекундні інтервали — повертати HTTP 409 Conflict зі зрозумілим повідомленням та оновленням слотів у Mini App.
-  2. **Автономний фоновий сервіс нагадувань (Background Reminder Worker):**
-     - **Нагадування за 24 години до візиту:** надсилається клієнту в Telegram за день до запланованого часу.
-     - **Нагадування за 2 години до візиту:** надсилається клієнту в день візиту за 2 години до початку.
-     - **Автонагадування адміну про підвислі заявки:** якщо нова заявка висить у статусі `pending` понад 30 хвилин без підтвердження чи відхилення — надсилати адміну м'який пуш.
+  1. **Виправлення UI у Telegram Mini App (за скріншотами):**
+     - У блоці вибору майстра (`MasterList.tsx`) замінити обрізаний текст «4 рок» та «2 рок» на повний та охайний підпис: **`4 роки досвіду`** та **`2 роки досвіду`** (або `4 роки` / `2 роки` без жодного обрізання).
+     - У шапці адміна (`Header.tsx` / `AdminDashboard.tsx`) видалити бейдж імені (`Andy`), залишивши лише статусний бейдж: **`Адміністратор`**.
+     - У списку послуг (`ServiceList.tsx`) забезпечити, щоб за замовчуванням був активний перший таб (наприклад, «Комплекси»), аби клієнт бачив компактну вибірку без перевантаження суцільним списком.
+  2. **Рефакторинг каталогу в Telegram-боті клієнта (`src/handlers/client.py`, `src/keyboards/client_kb.py`):**
+     - Усунути візуальну кашу та довгі стіни дубльованого тексту/кнопок у боті.
+     - При натисканні на «💅 Послуги та ціни» показувати вибір категорій (`[ 💅 Комплекси ]`, `[ 💎 Моделювання ]`, `[ 🌿 Догляд & SPA ]`).
+     - При виборі категорії виводити короткий лаконічний прайс саме цієї категорії (без створення десятка однотипних кнопок під кожну послугу). Під текстом розміщувати лише одну головну кнопку: `[ 💅 Записатися в Mini App ]` та навігаційні кнопки `[ ◀️ Назад до категорій ]` / `[ 🏠 Головне меню ]`.
+  3. **Запуск локального демона та Cloudflare HTTPS тунелю:**
+     - Запустити `cloudflared tunnel --url http://localhost:8000` у фоновому режимі (`nohup`).
+     - Витягнути публічний згенерований `https://*.trycloudflare.com` URL.
+     - Оновити `WEBAPP_URL=https://<тунель>.trycloudflare.com/app` у файлі `.env`.
+     - Запустити додаток у фоновому режимі: `nohup python -m src.main > app.log 2>&1 &`.
+     - Переконатися, що обидва процеси працюють, і надати користувачу точне HTTPS-посилання для тестування в Telegram.
 - **GitHub Repository:** `https://github.com/RissAR/nails_bot.git` (гілка `main`)
-- **Стек:** Python (asyncio, SQLAlchemy 2.0 Async, zoneinfo), FastAPI, React, Telegram Bot API (aiogram 3.x).
+- **Стек:** React, Vite, TypeScript, Tailwind CSS, Python (FastAPI + aiogram 3.x), Cloudflared.
 
 ---
 
 ## 2. Суворі правила безпеки (Strict Security & Scope Discipline)
 1. **Zero Hardcoded Secrets (КРИТИЧНО):** `BOT_TOKEN` та інші конфіденційні дані зчитуються **виключно з локального `.env`**. Заборонено записувати токени у файли коду.
-2. **Zero Scope Creep:** Модифікувати тільки роут створення бронювання (`src/api/routes/bookings.py`), модель `Appointment`, фоновий воркер нагадувань та обробку помилки 409 у `BookingModal.tsx`. Не ламати існуючий розклад чи дизайн.
-3. **Git Автоматизація:** Після завершення роботи та перевірки виконати:
-   `git add . && git commit -m "feat: implement race condition booking lock and background appointment reminders" && git push origin main`.
+2. **Zero Scope Creep:** Модифікувати тільки UI-компоненти фронтенду, текстовий вивід каталогу в `client.py` / `client_kb.py`, налаштування URL у `.env` та фоновий запуск.
+3. **Git Автоматизація:** Після завершення роботи виконати:
+   `git add . && git commit -m "feat: refine UI, clean bot catalog, launch local daemon and cloudflared tunnel" && git push origin main`.
 
 ---
 
 ## 3. Деталі технічної реалізації
 
-### 3.1. Захист від подвійного бронювання (Race Condition Lock)
+### 3.1. Виправлення UI у Frontend Mini App (`frontend/src/`)
 
-#### Backend (`src/api/routes/bookings.py`):
-1. **Транзакційна перевірка перетину інтервалів:**
-   - Перед створенням запису `Appointment` виконати сувору перевірку наявності існуючих бронювань зі статусом `pending` або `confirmed` для того самого `master_id` та `booking_date`:
-     ```python
-     conflict_stmt = (
-         select(Appointment)
-         .where(
-             Appointment.master_id == payload.master_id,
-             Appointment.booking_date == b_date,
-             Appointment.status.in_(["pending", "confirmed"]),
-             Appointment.start_time < e_time,
-             Appointment.end_time > s_time,
-         )
-     )
+1. **`frontend/src/components/MasterList.tsx`:**
+   - Знайти місце формування `expText`:
+     ```typescript
+     const expText = master.title.toLowerCase().includes('top')
+       ? '4 роки досвіду'
+       : '2 роки досвіду';
      ```
-2. **In-Process Lock:**
-   - Для запобігання паралельним конкурентним корутинам у FastAPI обгорнути створення запису в `asyncio.Lock()` (глобальний або по ключу `f"{payload.master_id}_{b_date}"`).
-3. **Обробка колізії:**
-   - Якщо знайдено перетин інтервалів:
-     `raise HTTPException(status_code=409, detail="Цей часовий слот щойно забронював інший клієнт. Будь ласка, оберіть інший вільний час.")`.
+   - Прибрати регулярний вираз `/(\d+\s*рок\w*)/i`, який через відсутність юнікод-прапорця обрізав українське слово до `"4 рок"`.
+   - Переконатися, що підпис виводиться повністю: `4 роки досвіду` або `2 роки досвіду`.
 
-#### Frontend (`frontend/src/components/BookingModal.tsx`):
-- Перехоплювати помилку HTTP 409 під час виклику `api.createBooking()`:
-  - Відображати зрозуміле повідомлення користувачу:
-    *"⚠️ На жаль, цей час щойно зайняли. Будь ласка, оберіть інший вільний слот."*
-  - Викликати зворотний колбек оновлення доступних слотів (`onRefreshSlots()`), щоб зайнятий слот миттєво зник з вибору.
+2. **`frontend/src/components/Header.tsx`:**
+   - У блоці відображення користувача в шапці:
+     Якщо `isAdmin === true` — відображати **тільки** бейдж:
+     ```tsx
+     <span className="text-[10px] font-bold text-nude-primary bg-nude-accent/60 px-2.5 py-0.5 rounded-full border border-nude-primary/30">
+       Адміністратор
+     </span>
+     ```
+     І **не рендерити** бейдж `{userName}` поруч.
+
+3. **`frontend/src/components/ServiceList.tsx`:**
+   - Перевірити початковий стан табів: за замовчуванням показувати послуги обраної активної категорії (або зробити перемикання чіпсів активним за замовчуванням на першу категорію), щоб клієнт бачив компактні 3–4 картки замість довгого списку з 12 позицій.
+
+4. **Збірка:**
+   - Виконати `npm run build` у папці `frontend/` з перевіркою успішної генерації в `dist`.
 
 ---
 
-### 3.2. Розширення моделі `Appointment` (`src/database/models/appointment.py`)
-Додати прапорці відправки сповіщень для уникнення дублювання:
-```python
-reminded_24h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
-reminded_2h: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
-admin_alerted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
-```
-*(У `src/database/init_db.py` забезпечити додавання цих стовпців, якщо вони відсутні в існуючій базі даних через `ALTER TABLE` або перевірку).*
+### 3.2. Рефакторинг каталогу в Telegram-боті (`src/handlers/client.py`, `src/keyboards/client_kb.py`)
+
+1. **Очищення виводу категорій:**
+   - При натисканні на «💅 Послуги та ціни» показувати кнопки вибору категорій:
+     - `✨ Комплекси манікюру`
+     - `✨ Моделювання та нарощування`
+     - `✨ Доглядові послуги та Add-ons`
+     - `◀️ Назад до меню`
+2. **Очищення виводу послуг усередині категорії:**
+   - У `client_category_details_callback`:
+     - Текст повідомлення формувати лаконічним списком:
+       ```html
+       📂 <b>{category_name}</b>
+
+       • <b>Комплекс «Базовий Однотон»</b> — 750 грн (90 хв)
+         <i>Зняття + комбі-чистка + вирівнювання + гель-лак</i>
+       • <b>Комплекс «Френч / Градієнт»</b> — 900 грн (105 хв)
+         <i>Класичний френч або градієнтне омбре</i>
+       ...
+       ```
+     - В інлайн-клавіатурі (`get_category_services_kb`):
+       - **НЕ створювати окрему кнопку для кожної послуги** (це створювало візуальну кашу).
+       - Замість цього розмістити компактний набір:
+         - `[ 💅 Записатися онлайн (Mini App) ]` (посилання на TMA);
+         - `[ ◀️ До списку категорій ]` / `[ 🏠 Головне меню ]`.
+     - Це зробить діалог у боті чистим, структурованим та приємним для читання.
 
 ---
 
-### 3.3. Сервіс автоматичних нагадувань (`src/services/reminder_service.py`)
+### 3.3. Підйом локального демона та Cloudflare HTTPS тунелю
 
-Створити асинхронний фоновий воркер, що працює паралельно з ботом та API:
-```python
-async def run_reminder_worker(bot: Bot) -> None:
-    """Background worker running every 60 seconds to process appointment reminders."""
-```
-
-#### Логіка перевірки за Київським часом (`Europe/Kyiv`):
-1. **Нагадування за 24 години (Next-Day Reminder):**
-   - Шукає `Appointment` зі статусом `"confirmed"` та `reminded_24h == False`.
-   - Умова: `booking_date == tomorrow` (за часовим поясом Києва).
-   - Надсилає клієнту в Telegram:
-     ```html
-     ✨ <b>Нагадування про завтрашній запис у Sense Nail Studio!</b>
-
-     Олено, чекаємо на вас завтра (<b>{booking_date}</b>) о <b>{start_time}</b>:
-     💅 <b>Послуга:</b> {service_name}
-     👩‍🎨 <b>Майстер:</b> {master_name}
-     📍 <b>Адреса:</b> м. Івано-Франківськ, вул. Січових Стрільців
-
-     Якщо ваші плани змінилися, будь ласка, повідомте адміністратора: @andriy_bot_dev
+1. **Завершити старі процеси (якщо є):**
+   - Зупинити старі процеси `src.main` або `cloudflared` за допомогою `pkill -f "python -m src.main"` та `pkill -f "cloudflared"`.
+2. **Запустити Cloudflare тунель:**
+   ```bash
+   nohup cloudflared tunnel --url http://localhost:8000 > cloudflared.log 2>&1 &
+   ```
+3. **Отримати HTTPS посилання:**
+   - Зачекати 2–4 секунди:
+     ```bash
+     grep -o 'https://[a-zA-Z0-9-]\+\.trycloudflare\.com' cloudflared.log | head -n 1
      ```
-   - Встановлює `reminded_24h = True` та зберігає в БД.
-
-2. **Нагадування за 2 години (Same-Day Reminder):**
-   - Шукає `Appointment` зі статусом `"confirmed"` та `reminded_2h == False`.
-   - Умова: `booking_date == today` і поточний час знаходиться в діапазоні від 1.5 до 2.5 годин до `start_time`.
-   - Надсилає клієнту в Telegram:
-     ```html
-     ⏳ <b>Чекаємо на вас сьогодні о {start_time}!</b>
-
-     Студія естетичного манікюру «Sense Nail Studio».
-     💅 {service_name} • Майстер: {master_name}
-     📍 вул. Січових Стрільців
-
-     Кава, чай та бездоганний манікюр уже чекають на вас ☕️✨
-     ```
-   - Встановлює `reminded_2h = True` та зберігає в БД.
-
-3. **Автонагадування адміну про підвислі заявки (Pending Alert):**
-   - Шукає `Appointment` зі статусом `"pending"` та `admin_alerted == False`.
-   - Умова: запис створено понад 30 хвилин тому (`created_at <= now - 30 minutes`).
-   - Надсилає адмінам (`settings.ADMIN_IDS`):
-     ```html
-     ⚠️ <b>Нагадування: Заявка #{id} все ще очікує рішення!</b>
-     👤 Клієнт: {client_name} ({client_phone})
-     💅 Послуга: {service_name} о {start_time} ({booking_date})
-     Будь ласка, підтвердіть або відхиліть запис.
-     ```
-   - Встановлює `admin_alerted = True` та зберігає в БД.
-
----
-
-### 3.4. Інтеграція в `src/main.py`
-У головній асинхронній точці входу `main()`:
-```python
-await asyncio.gather(
-    run_api(),
-    run_bot(bot, dp),
-    run_reminder_worker(bot),
-)
-```
+4. **Оновити конфігурацію `.env`:**
+   - Встановити `WEBAPP_URL=https://<отриманий-домен>.trycloudflare.com/app` у файлі `.env`.
+5. **Запустити головний демон бота та API:**
+   ```bash
+   nohup python -m src.main > app.log 2>&1 &
+   ```
+6. **Перевірка працездатності:**
+   - Перевірити локальний ендпоінт: `curl -I http://localhost:8000/app/` (має бути HTTP 200).
+   - Перевірити статус процесів: `pgrep -af "python -m src.main"` та `pgrep -af "cloudflared"`.
+   - Вивести отриманий робочий `WEBAPP_URL` у звіті.
 
 ---
 
 ## 4. Критерії приймання та валідація (Acceptance Criteria)
-1. При спробі одночасного створення запису на пересічний час другий запит повертає HTTP 409 Conflict.
-2. У Mini App користувач отримує попередження про зайнятий час та актуалізацію списку слотів.
-3. У таблиці `appointments` додано поля `reminded_24h`, `reminded_2h`, `admin_alerted`.
-4. Сервіс `run_reminder_worker` стартує в одному процесі, не блокує polling бота та API.
-5. Повідомлення нагадувань надсилаються за часовим поясом `Europe/Kyiv` коректно і без дублювання.
-6. `npm run build` у `frontend/` збирається без помилок (код 0).
-7. Усі секрети залишаються строго в `.env`.
+1. У Mini App клієнта досвід майстрів відображається повністю: «4 роки досвіду» та «2 роки досвіду» (жодних обрізань до «рок»).
+2. У Mini App адміна в шапці виводиться суворо «Адміністратор» (без сторонніх імен).
+3. Список послуг у Mini App компактний та зручно перемикається табами.
+4. Каталог у боті клієнта виводиться акуратно, без дублюючих десятків кнопок на кожну послугу.
+5. `npm run build` успішно збирається з кодом 0.
+6. Процеси `cloudflared` та `python -m src.main` працюють у фоні.
+7. `WEBAPP_URL` у `.env` налаштовано на діючий HTTPS тунель Cloudflare.
 8. Зміни закомічені та відправлені на GitHub:
    ```bash
    git add .
-   git commit -m "feat: implement race condition booking lock and background appointment reminders"
+   git commit -m "feat: refine UI, clean bot catalog, launch local daemon and cloudflared tunnel"
    git push origin main
    ```
