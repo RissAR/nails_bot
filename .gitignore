@@ -13,9 +13,14 @@ ENV/
 .env
 *.env.local
 
-# Databases
+# Databases & Backups
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
 *.sqlite3
+data/
+backups/
 
 # Node & Frontend
 node_modules/
